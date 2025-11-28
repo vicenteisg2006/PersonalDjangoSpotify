@@ -78,7 +78,7 @@
                 <div class="col-md-6">
                     <input type="text" id="searchInput" class="form-control" placeholder="Buscar canción...">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <select id="sortSelect" class="form-select">
                         <option value="name">Ordenar por Nombre</option>
                         <option value="streams" selected>Ordenar por Streams</option>
@@ -86,12 +86,25 @@
                         <option value="album">Ordenar por Álbum</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <select id="orderSelect" class="form-select">
                         <option value="desc">Descendente</option>
                         <option value="asc">Ascendente</option>
                     </select>
                 </div>
+
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-success w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#createAlbumModal">
+                        <i class="fas fa-plus-circle"></i>Album
+                    </button>
+                </div>
+
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-success w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#uploadSongModal">
+                        <i class="fas fa-upload"></i> Song
+                    </button>
+                </div>
+
             </div>
 
             <!-- Tabla -->
@@ -109,13 +122,13 @@
                     </thead>
                     <tbody id="songsTableBody">
                         {% for song in songs %}
-                        <tr data-name="{{ song.name }}" data-album="{{ song.album }}" data-streams="{{ song.streams }}" data-date="{{ song.release_date }}">
+                        <tr data-name="{{ song.song_text }}" data-album="{{ song.album }}" data-streams="{{ song.streams }}" data-date="{{ song.created_at|date:'Y-m-d' }}">
                             <th scope="row">{{ forloop.counter }}</th>
-                            <td>{{ song.name }}</td>
+                            <td>{{ song.song_text }}</td>
                             <td>{{ song.album }}</td>
-                            <td>{{ song.duration }}</td>
+                            <td>{{ song.duration|default:"0:00" }}</td>
                             <td>{{ song.streams|intcomma }}</td>
-                            <td>{{ song.release_date }}</td>
+                            <td>{{ song.created_at|date:'Y-m-d' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -285,6 +298,97 @@
         // Ordenar por streams al cargar (por defecto)
         filterAndSortTable();
     </script>
+
+
+
+
+
+<div class="modal fade" id="uploadSongModal" tabindex="-1" aria-labelledby="uploadSongModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background-color: #1a1a1a;">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="uploadSongModalLabel" style="color: #1db954;">Subir Nueva Canción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'upload_song' perfil_id=perfil_id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% if form.errors %}
+                        {% endif %}
+
+                    <div class="mb-3">
+                        <label for="song_text" class="form-label text-white">Nombre de la Canción</label>
+                        <input type="text" class="form-control" id="song_text" name="song_text" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="img_src" class="form-label text-white">URL de la Portada (img_src)</label>
+                        <input type="url" class="form-control" id="img_src" name="img_src">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="album_id" class="form-label text-white">Álbum</label>
+                        <select class="form-select" id="album_id" name="album_id" required>
+                            <option value="">Selecciona un Álbum</option>
+                            {% for album in albums %}
+                                <option value="{{ album.id }}">{{ album.title }}</option>
+                            {% empty %}
+                                <option value="" disabled>No tienes álbumes. Crea uno primero.</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="duration" class="form-label text-white">Duración (MM:SS)</label>
+                        <input type="text" class="form-control" id="duration" name="duration" placeholder="Ej: 3:45" required>
+                    </div>
+
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-success">Guardar Canción</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createAlbumModal" tabindex="-1" aria-labelledby="createAlbumModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background-color: #1a1a1a;">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="createAlbumModalLabel" style="color: #1db954;">Crear Nuevo Álbum</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'create_album' perfil_id=perfil_id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="perfil_id" value="{{ perfil.id }}">
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label text-white">Título del Álbum</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="release_date" class="form-label text-white">Fecha de Lanzamiento</label>
+                        <input type="date" class="form-control" id="release_date" name="release_date">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cover_art_url" class="form-label text-white">URL de la Portada</label>
+                        <input type="url" class="form-control" id="cover_art_url" name="cover_art_url">
+                    </div>
+
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Crear Álbum</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 

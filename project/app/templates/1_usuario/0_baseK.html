@@ -88,6 +88,44 @@
             </div>
         </nav>
 
+        {% comment %} INICIO DE LA LÓGICA DE NOTIFICACIONES {% endcomment %}
+
+        {% if perfil.estado_moderacion == 'alert' %}
+            <div style="
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 2000; 
+            ">
+                <div class="alert alert-danger alert-dismissible fade show" role="alert" style="
+                    border-radius: 10px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+                    min-width: 300px;
+                ">
+                    <strong>AVISO:</strong> ALERTA: Su cuenta está bajo revisión. Evite incumplir las normas.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        {% elif perfil.estado_moderacion == 'en_espera' %}
+            <div style="
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 2000;
+            ">
+                <div class="alert alert-warning alert-dismissible fade show" role="alert" style="
+                    border-radius: 10px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+                    min-width: 300px;
+                ">
+                    <strong>AVISO:</strong> PENDIENTE: Hay una acción de moderación pendiente en su cuenta.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        {% endif %}
+
+        {% comment %} FIN DE LA LÓGICA DE NOTIFICACIONES {% endcomment %}
+
         <!-- Utilidad sideBar -->
         <script>
             document.addEventListener("DOMContentLoaded", function() {

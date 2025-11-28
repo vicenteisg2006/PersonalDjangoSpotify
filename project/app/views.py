@@ -1,20 +1,26 @@
 #Imports generales
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
-from django.db.models import Count
+from django.db.models import Count, Sum, F, Q
+from django.db.models.functions import TruncMonth
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from datetime import timedelta, date
 import json
-import datetime
 
 #Imports model y form para mensajes moderador
-from .models import PERFIL, alertaMODERADOR
-from .forms import alertaMODERADORForm
+from .models import PERFIL, REGISTRO_MODERADOR
+from .forms import alertaMODERADORForm, RegistroModeradorForm
 
 #Imports modelos para playlist
-from .models import Playlist, Song, PlaylistSong
+from .models import Playlist, Song, PlaylistSong, Album, MonthlyStreamRecord, CANCION_REPRODUCCION, UbicacionGeo
 
 
 
-# ========== LOGIN ==========
+#                                                   ==========================
+#                                                   ========== LOGIN ==========
+#                                                   ==========================
+
 def loginPage(request):
     if request.method == "POST":
         form_type = request.POST.get("form_type")
@@ -24,7 +30,12 @@ def loginPage(request):
             password = request.POST.get("password")
 
             try:
-                perfil = PERFIL.objects.get(nombre=username, password=password)
+                perfil = PERFIL.objects.get(username=username, password=password)
+
+                if perfil.estado_moderacion == 'ban':
+                    error_msg = "Acceso denegado, su cuenta ha sido baneada"
+                    return render(request, "0_login/login.html", {"error": error_msg})
+
                 if perfil.rol == "user":
                     return redirect("userV", perfil_id = perfil.id)
                 elif perfil.rol == "artist":
@@ -38,38 +49,18 @@ def loginPage(request):
                 error_msg = "Invalid credentials, please try again."
                 return render(request, "0_login/login.html", {"error": error_msg})
 
-
-            # #Segun las contraseñas que recibe, redirige a un html
-            # if username == "user" and password == "user123":
-            #     return redirect("user")                                         #Usuario >>> BORRAR
-            # elif username == "artist" and password == "artist123":
-            #     return redirect("artist")                                        #Artista Generico >>> BORRAR
-            # elif username == "admin" and password == "admin123":
-            #     return redirect("dashboard")                                  #Administrador
-            # elif username == "anne-marie" and password == "am123":
-            #     return redirect("AnneMarie")                                   #Anne-Marie >>> BORRAR
-            # elif username == "userV" and password == "userV123":
-            #     return redirect("userV")                                       #Variante usuario -> usando BaseK
-            # elif username == "artistV" and password == "artistV123":
-            #     return redirect("artistV")                                      #Variante artista -> usando BaseKA
-            # elif username == "moder" and password == "moder123":
-            #     return redirect("moder")                                       #Moderador -> usando BaseKM
-            
-            # #Mensaje de error
-            # else:
-            #     error_msg = "Invalid credentials, please try again."
-            #     return render(request, "login.html", {"error": error_msg})
-
         elif form_type == "register":
             new_username = request.POST.get("new_username")
             new_password = request.POST.get("new_password")
+            new_name = request.POST.get('new_name')
             new_rol = request.POST.get("new_rol")
+            new_ubicacion = request.POST.get("new_ubicacion")
 
-            if PERFIL.objects.filter(nombre=new_username).exists():
+            if PERFIL.objects.filter(username=new_username).exists():
                 error_msg = "Username already exists. Please choose a different one."
                 return render(request, "0_login/login.html", {"error": error_msg})
             else:
-                PERFIL.objects.create(nombre=new_username, password=new_password, rol=new_rol)
+                PERFIL.objects.create(username=new_username, password=new_password, rol=new_rol, nombre=new_name, ubicacion = new_ubicacion)
                 success_msg = "Registration successful! You can now log in."
                 return render(request, "0_login/login.html", {"success": success_msg})
     return render(request, '0_login/login.html')
@@ -80,173 +71,209 @@ def loginPage(request):
 
 
 
-# ========== ARTISTAS ==========
-def artistPage(request):
-    context = {
-        'artist_name': 'Dua Lipa',
-        'total_streams': 1234567,
-        'monthly_listeners': 456789,
-        'followers': 123456,
-        'top_songs': [
-            {'name': 'Levitating', 'streams': 500000},
-            {'name': 'Don’t Start Now', 'streams': 400000},
-            {'name': 'Dance the Night', 'streams': 300000},
-            {'name': 'New Rules', 'streams': 200000},
-            {'name': 'Hallucinate', 'streams': 100000},
-            ],
-        'streams_chart': {
-            'labels': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-            'values': [120000, 150000, 170000, 190000, 210000, 260000, 300000],
-            }
-        }
-    return render(request, 'artist.html', context)
+#                                                   ==========================
+#                                                   ========= ARTISTA =========
+#                                                   ==========================
 
 def artistV(request, perfil_id): #Variante artista -> usando BaseKA
-    perfil = PERFIL.objects.get(id=perfil_id)
-    #Datos para jsonear
+    listeners_chart = {'labels': ['Jan', 'Feb', 'Mar'], 'values': [18000, 22500, 25500]}
+    continental_data = {'Jan': {'Asia': 10000, 'Africa': 10000, 'America': 35000, 'Europa': 40000, 'Oceania': 25000}}
+    continental_listeners_data = {'Jan': {'Asia': 1500, 'Africa': 1500, 'America': 5250, 'Europa': 6000, 'Oceania': 3750}}
+
+    perfil = get_object_or_404(PERFIL, id=perfil_id, rol='artist')
+
+    all_artist_reproductions = CANCION_REPRODUCCION.objects.filter(song__artist=perfil)
+    
+    total_streams_count = all_artist_reproductions.count() 
+    
+    top_songs_data = Song.objects.filter(artist=perfil).annotate(
+        streams=Count('reproductions') 
+    ).order_by('-streams')[:5]
+    
+    monthly_streams_data = all_artist_reproductions.annotate(
+        month=TruncMonth('fecha_reproduccion') 
+    ).values('month').annotate(total_streams=Count('id')).order_by('month')
+
     streams_chart = {
-        'labels': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-        'values': [130000, 150000, 100000, 190000, 210000, 260000, 150000],
+        'labels': [record['month'].strftime('%b') for record in monthly_streams_data], 
+        'values': [record['total_streams'] for record in monthly_streams_data],
     }
 
-    listeners_chart = {
-        'labels': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-        'values': [18000, 22500, 25500, 20000, 31500, 32000, 45000],
-    }
-
-    continental_data = {
-        'Jan': {'Asia': 10000, 'Africa': 10000, 'America': 35000, 'Europa': 40000, 'Oceania': 25000},
-        'Feb': {'Asia': 15000, 'Africa': 15000, 'America': 40000, 'Europa': 45000, 'Oceania': 35000},
-        'Mar': {'Asia': 20000, 'Africa': 20000, 'America': 45000, 'Europa': 50000, 'Oceania': 35000},
-        'Apr': {'Asia': 22000, 'Africa': 21000, 'America': 49000, 'Europa': 60000, 'Oceania': 38000},
-        'May': {'Asia': 27000, 'Africa': 21000, 'America': 53000, 'Europa': 64000, 'Oceania': 45000},
-        'Jun': {'Asia': 40000, 'Africa': 25000, 'America': 65000, 'Europa': 75000, 'Oceania': 55000},
-        'Jul': {'Asia': 45000, 'Africa': 30000, 'America': 80000, 'Europa': 80000, 'Oceania': 65000},
-    }
-
-    continental_listeners_data = {
-        'Jan': {'Asia': 1500, 'Africa': 1500, 'America': 5250, 'Europa': 6000, 'Oceania': 3750},
-        'Feb': {'Asia': 2250, 'Africa': 2250, 'America': 6000, 'Europa': 6750, 'Oceania': 5250},
-        'Mar': {'Asia': 3000, 'Africa': 3000, 'America': 6750, 'Europa': 7500, 'Oceania': 5250},
-        'Apr': {'Asia': 3300, 'Africa': 3150, 'America': 7350, 'Europa': 9000, 'Oceania': 5700},
-        'May': {'Asia': 4050, 'Africa': 3150, 'America': 7950, 'Europa': 9600, 'Oceania': 6750},
-        'Jun': {'Asia': 6000, 'Africa': 3750, 'America': 9750, 'Europa': 11250, 'Oceania': 8250},
-        'Jul': {'Asia': 6750, 'Africa': 4500, 'America': 12000, 'Europa': 12000, 'Oceania': 9750},
-    }
-
-    # Datos de canciones para calcular álbumes más escuchados
-    songs = [
-        {'name': 'Levitating', 'album': 'Future Nostalgia', 'duration': '3:23', 'streams': 500000, 'release_date': '2020-03-27'},
-        {'name': 'Don\'t Start Now', 'album': 'Future Nostalgia', 'duration': '3:03', 'streams': 400000, 'release_date': '2019-11-01'},
-        {'name': 'Dance the Night', 'album': 'Barbie The Album', 'duration': '2:57', 'streams': 300000, 'release_date': '2023-05-25'},
-        {'name': 'New Rules', 'album': 'Dua Lipa', 'duration': '3:29', 'streams': 200000, 'release_date': '2017-07-07'},
-        {'name': 'Hallucinate', 'album': 'Future Nostalgia', 'duration': '3:27', 'streams': 100000, 'release_date': '2020-03-27'},
-        {'name': 'Physical', 'album': 'Future Nostalgia', 'duration': '3:13', 'streams': 250000, 'release_date': '2020-01-31'},
-        {'name': 'Break My Heart', 'album': 'Future Nostalgia', 'duration': '3:41', 'streams': 180000, 'release_date': '2020-03-25'},
-        {'name': 'One Kiss', 'album': 'One Kiss', 'duration': '3:34', 'streams': 350000, 'release_date': '2018-04-06'},
-        {'name': 'IDGAF', 'album': 'Dua Lipa', 'duration': '3:38', 'streams': 220000, 'release_date': '2018-01-12'},
-        {'name': 'Cold Heart', 'album': 'Cold Heart', 'duration': '3:22', 'streams': 280000, 'release_date': '2021-08-13'},
-        {'name': 'Love Again', 'album': 'Future Nostalgia', 'duration': '4:18', 'streams': 150000, 'release_date': '2020-03-27'},
-        {'name': 'Pretty Please', 'album': 'Future Nostalgia', 'duration': '3:15', 'streams': 90000, 'release_date': '2020-03-27'},
-        {'name': 'Be the One', 'album': 'Dua Lipa', 'duration': '3:23', 'streams': 170000, 'release_date': '2015-10-30'},
-        {'name': 'Blow Your Mind', 'album': 'Dua Lipa', 'duration': '3:32', 'streams': 140000, 'release_date': '2016-08-26'},
-        {'name': 'Hotter Than Hell', 'album': 'Dua Lipa', 'duration': '3:08', 'streams': 130000, 'release_date': '2016-06-10'},
-    ]
-    
-    # Calcular streams por álbum
-    album_streams = {}
-    for song in songs:
-        album = song['album']
-        if album not in album_streams:
-            album_streams[album] = 0
-        album_streams[album] += song['streams']
-    
-    # Ordenar álbumes por streams (descendente)
-    sorted_albums = sorted(album_streams.items(), key=lambda x: x[1], reverse=True)
+    album_streams_data = Song.objects.filter(artist=perfil).values('album__title').annotate(
+        total_album_streams=Count('reproductions') 
+    ).order_by('-total_album_streams')
     
     albums_chart = {
-        'labels': [album[0] for album in sorted_albums],
-        'data': [album[1] for album in sorted_albums],
-        'backgroundColor': ['#FF6B9D', '#4ECDC4', '#FFD93D', '#95E1D3', '#C77DFF', '#00F5FF'],
+        'labels': [item['album__title'] for item in album_streams_data if item['album__title']],
+        'data': [item['total_album_streams'] for item in album_streams_data if item['album__title']],
+        'backgroundColor': ['#FF6B9D', '#4ECDC4', '#FFD93D', '#95E1D3', '#C77DFF', '#00F5FF'], 
     }
 
-    #context
     context = {
-        'artist_name': 'Dua Lipa',
-        'total_streams': 3460000,
+        'perfil': perfil,
+        'perfil_id': perfil_id,
+        'artist_name': perfil.nombre, 
+        
+        'total_streams': total_streams_count,
+        'top_songs': top_songs_data, 
+        
+        'streams_chart': json.dumps(streams_chart),
+        'albums_chart': json.dumps(albums_chart),
+        
         'monthly_listeners': 456789,
         'followers': 123456,
-        'top_songs': [
-            {'name': 'Levitating', 'streams': 500000},
-            {'name': 'Don\'t Start Now', 'streams': 400000},
-            {'name': 'Dance the Night', 'streams': 300000},
-            {'name': 'New Rules', 'streams': 200000},
-            {'name': 'Hallucinate', 'streams': 100000},
-            ],
-        'top_viewers': [
-            {'name': 'User1', 'streams': 15000},
-            {'name': 'User2', 'streams': 12000},
-            {'name': 'User3', 'streams': 10000},
-            {'name': 'User4', 'streams': 8000},
-            {'name': 'User5', 'streams': 5000},
-            ],
-        'streams_chart': json.dumps(streams_chart), #jsoneado
-        'listeners_chart': json.dumps(listeners_chart), #jsoneado
-        'continental_data': json.dumps(continental_data), #jsoneado
-        'continental_listeners_data': json.dumps(continental_listeners_data), #jsoneado
-        'albums_chart': json.dumps(albums_chart), #jsoneado
-        'perfil': perfil,
+        'top_viewers': [{'name': 'User1', 'streams': 15000}, {'name': 'User2', 'streams': 12000}], 
+        'listeners_chart': json.dumps(listeners_chart),
+        'continental_data': json.dumps(continental_data), 
+        'continental_listeners_data': json.dumps(continental_listeners_data), 
     }
+    
     return render(request, '2_artista/1_artist_v.html', context)
 
 
-def annemarie(request): #prototipo vicente 
-    return render(request, 'am.html')
 
-def artist_songs(request, perfil_id): #Vista de todas las canciones del artista
-    perfil = PERFIL.objects.get(id=perfil_id)
-    songs = [
-        {'name': 'Levitating', 'album': 'Future Nostalgia', 'duration': '3:23', 'streams': 500000, 'release_date': '2020-03-27'},
-        {'name': 'Don\'t Start Now', 'album': 'Future Nostalgia', 'duration': '3:03', 'streams': 400000, 'release_date': '2019-11-01'},
-        {'name': 'Dance the Night', 'album': 'Barbie The Album', 'duration': '2:57', 'streams': 300000, 'release_date': '2023-05-25'},
-        {'name': 'New Rules', 'album': 'Dua Lipa', 'duration': '3:29', 'streams': 200000, 'release_date': '2017-07-07'},
-        {'name': 'Hallucinate', 'album': 'Future Nostalgia', 'duration': '3:27', 'streams': 100000, 'release_date': '2020-03-27'},
-        {'name': 'Physical', 'album': 'Future Nostalgia', 'duration': '3:13', 'streams': 250000, 'release_date': '2020-01-31'},
-        {'name': 'Break My Heart', 'album': 'Future Nostalgia', 'duration': '3:41', 'streams': 180000, 'release_date': '2020-03-25'},
-        {'name': 'One Kiss', 'album': 'One Kiss', 'duration': '3:34', 'streams': 350000, 'release_date': '2018-04-06'},
-        {'name': 'IDGAF', 'album': 'Dua Lipa', 'duration': '3:38', 'streams': 220000, 'release_date': '2018-01-12'},
-        {'name': 'Cold Heart', 'album': 'Cold Heart', 'duration': '3:22', 'streams': 280000, 'release_date': '2021-08-13'},
-        {'name': 'Love Again', 'album': 'Future Nostalgia', 'duration': '4:18', 'streams': 150000, 'release_date': '2020-03-27'},
-        {'name': 'Pretty Please', 'album': 'Future Nostalgia', 'duration': '3:15', 'streams': 90000, 'release_date': '2020-03-27'},
-        {'name': 'Be the One', 'album': 'Dua Lipa', 'duration': '3:23', 'streams': 170000, 'release_date': '2015-10-30'},
-        {'name': 'Blow Your Mind', 'album': 'Dua Lipa', 'duration': '3:32', 'streams': 140000, 'release_date': '2016-08-26'},
-        {'name': 'Hotter Than Hell', 'album': 'Dua Lipa', 'duration': '3:08', 'streams': 130000, 'release_date': '2016-06-10'},
-    ]
+
+#                                                   ==========================
+#                                                   ====  CANCIONES ARTISTA ====
+#                                                   ==========================
+
+def artist_songs(request, perfil_id): 
+    perfil = get_object_or_404(PERFIL, id=perfil_id, rol='artist')
     
-    # Calcular el total de streams sumando todos los streams de las canciones
-    total_streams = sum(song['streams'] for song in songs)
+    songs_data_for_table = Song.objects.filter(artist=perfil).annotate(
+        streams=Count('reproductions')
+    ).order_by('-streams')
+
+    total_songs = songs_data_for_table.count()
+    total_streams = songs_data_for_table.aggregate(Sum('streams'))['streams__sum'] or 0
+
+    artist_albums = Album.objects.filter(artist=perfil).order_by('title')
+    
+    chart_songs = []
+    for song in songs_data_for_table:
+
+        total_seconds = int(song.duration.total_seconds()) if song.duration else 0
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        duration_str = f"{minutes:02d}:{seconds:02d}"
+
+        chart_songs.append({
+            "name": song.song_text,
+            "album": song.album.title if song.album else 'Single',
+            "duration": duration_str, 
+            "streams": song.streams,
+            "release_date": song.created_at.strftime("%Y-%m-%d") 
+        })
     
     context = {
-        'artist_name': 'Dua Lipa',
-        'total_songs': len(songs),
+        'artist_name': perfil.nombre,
+        'perfil_id': perfil.id,
+        'total_songs': total_songs,
         'total_streams': total_streams,
-        'songs': songs,
-        'perfil': perfil,
+        'songs': songs_data_for_table, 
+        'albums': artist_albums,        
+        'songsDataJson': json.dumps(chart_songs), 
     }
     return render(request, '2_artista/artist_songs.html', context)
 
 
 
+#                                                   ==========================
+#                                                   ==  SUBIR CANCION ARTISTA ==
+#                                                   ==========================
+
+def upload_song(request, perfil_id):
+
+    REDIRECT_SUCCESS_URL = 'artist_songs'
+    
+    if request.method == 'POST':
+        try:
+
+            artist_perfil = PERFIL.objects.get(id=perfil_id, rol='artist') 
+        except PERFIL.DoesNotExist:
+            return redirect('loginPage') 
+
+        song_text = request.POST.get('song_text')
+        img_src = request.POST.get('img_src')
+        album_id = request.POST.get('album_id')
+        
+        duration_text = request.POST.get('duration')
+        
+        song_duration = None
+        if duration_text and ':' in duration_text:
+            try:
+                minutes, seconds = map(int, duration_text.split(':'))
+                song_duration = timedelta(minutes=minutes, seconds=seconds)
+            except ValueError:
+                pass 
+        
+        try:
+            selected_album = Album.objects.get(id=album_id, artist=artist_perfil)
+        except Album.DoesNotExist:
+            return redirect(REDIRECT_SUCCESS_URL, perfil_id=perfil_id) 
+
+        try:
+            Song.objects.create(
+                song_text=song_text,
+                img_src=img_src,
+                album=selected_album,
+                artist=artist_perfil, 
+                duration=song_duration, 
+            )
+        except Exception as e:
+            print(f"ERROR: Fallo al crear canción: {e}")
+            return redirect(REDIRECT_SUCCESS_URL, perfil_id=perfil_id) 
+
+        return redirect(REDIRECT_SUCCESS_URL, perfil_id=perfil_id) 
+        
+    return redirect(REDIRECT_SUCCESS_URL, perfil_id=perfil_id)
 
 
 
-# ========== USUARIOS ==========
-def userPage(request): #Inicial - OBSOLETO
-    return render(request, 'user.html')
+#                                                   ==========================
+#                                                   === SUBIR ALBUM ARTISTA ====
+#                                                   ==========================
+
+def create_album(request, perfil_id): 
+    REDIRECT_URL = 'artist_songs' 
+    
+    if request.method == 'POST':
+        try:
+            artist_perfil = PERFIL.objects.get(id=perfil_id, rol='artist')
+        except PERFIL.DoesNotExist:
+            return redirect('loginPage') 
+
+        title = request.POST.get('title')
+        release_date_str = request.POST.get('release_date')
+        cover_art_url = request.POST.get('cover_art_url')
+
+        release_date = date.fromisoformat(release_date_str) if release_date_str else None
+        
+        try:
+            Album.objects.create(
+                title=title,
+                release_date=release_date,
+                cover_art_url=cover_art_url,
+                artist=artist_perfil 
+            )
+        except Exception as e:
+            print(f"ERROR: Fallo al crear álbum: {e}")
+            return redirect(REDIRECT_URL, perfil_id=perfil_id)
+
+        return redirect(REDIRECT_URL, perfil_id=perfil_id) 
+        
+    return redirect(REDIRECT_URL, perfil_id=perfil_id)
+
+
+
+
+#                                                   ==========================
+#                                                   ========= USUARIO =========
+#                                                   ==========================
 
 def userV(request, perfil_id): #Variante -> usando BaseK
     perfil = PERFIL.objects.get(id=perfil_id)
-    mensajes = alertaMODERADOR.objects.filter(receptor=perfil).order_by('-fechaEnvio')
+    mensajes = REGISTRO_MODERADOR.objects.filter(perfil_afectado=perfil).order_by('-fecha')
     context = {
         'perfil': perfil,
         'mensajes': mensajes,
@@ -261,20 +288,15 @@ def userV(request, perfil_id): #Variante -> usando BaseK
 
 
 # ========== COMPLEMENTOS USUARIOS ==========
-def playlist(request): #Playlist
-    return render(request, 'playlist.html')
 
 def playlistV(request, perfil_id): #Variante playlist -> usando BaseK
     perfil = PERFIL.objects.get(id=perfil_id)
 
-    # Verificar si se está cargando una playlist específica desde la galería
     load_playlist_id = request.GET.get('playlist_id')
     
     if load_playlist_id:
-        # Si se pasa un ID por GET, cargar esa playlist
         request.session['active_playlist_id'] = int(load_playlist_id)
     
-    # Obtener la playlist activa de la sesión (si existe)
     playlist_id = request.session.get('active_playlist_id')
     playlist_obj = None
     songs_list = []
@@ -282,12 +304,10 @@ def playlistV(request, perfil_id): #Variante playlist -> usando BaseK
     if playlist_id:
         try:
             playlist_obj = Playlist.objects.get(id=playlist_id)
-            # Obtener todas las canciones de la playlist con su información
             songs_list = list(playlist_obj.songs.values('id', 'song_text', 'img_src'))
         except Playlist.DoesNotExist:
             request.session.pop('active_playlist_id', None)
     
-    # Obtener todas las playlists para mostrar en la galería
     all_playlists = Playlist.objects.all()
     
     context = {
@@ -299,359 +319,459 @@ def playlistV(request, perfil_id): #Variante playlist -> usando BaseK
     }
     return render(request, '1_usuario/2_funcionPlaylist_v.html', context)
 
-
-
-
-
-
-
-
-# ========== ADMINISTRADOR ==========
-def admin(request): #Administrador
-    return render(request, '3_admin/admin.html')
-
-def moder(request, perfil_id): #Moderador
-    perfil = PERFIL.objects.get(id=perfil_id)
-
-    context = {
-        'perfil': perfil,
-    }
-
-    return render(request, '4_moderador/1_moderHome.html', context)
-
-def prueba(request): #Prueba
-    return render(request, '4_moderador/prueba.html')
-
-# ========== COMPLEMENTOS ADMINISTRADOR ==========
-
-def get_moder_data(request, chart_id): #Datos para graficos moderador
-
-    grafico_1_data = {
-        'title' : 'Grafico 1',
-        'type': 'bar',
-        'labels': [],
-        'datasets': [],
-    }
-
-    grafico_2_data = {
-        'title' : 'Grafico 2',
-        'type': 'line',
-        'labels': [],
-        'datasets': [],
-    }
-
-    if chart_id == 'graph-card-1':
-
-        grafico_1_data = {
-            'title': 'Alertas por Continente',
-            'type': 'globe',
-            'data': [ 
-                {'title': 'Sudamérica', 'lat': -14.23, 'lon': -51.92, 'value': 150},
-                {'title': 'Europa', 'lat': 54.52, 'lon': 15.25, 'value': 100},
-                {'title': 'Asia', 'lat': 34.04, 'lon': 100.61, 'value': 80},
-                {'title': 'Norteamérica', 'lat': 54.52, 'lon': -105.25, 'value': 120},
-                {'title': 'África', 'lat': -0.02, 'lon': 17.15, 'value': 30},
-                {'title': 'Oceanía', 'lat': -25.27, 'lon': 133.77, 'value': 20}
-            ]
-        }
-        grafico_2_data = {
-            'title': 'Alertas en los últimos 6 meses',
-            'type': 'line',
-            'labels': ['Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago'],
-            'datasets': [{
-                'label': 'Total Alertas',
-                'data': [65, 59, 80, 81, 56, 120],
-                'borderColor': '#8EFAB4',
-                'tension': 0.2
-            }]
-        }
-
-    elif chart_id == 'graph-card-2':
-
-        grafico_1_data = {
-            'title': 'Baneos por Continente',
-            'type': 'globe',
-            'data': [
-                {'title': 'Sudamérica', 'lat': -14.23, 'lon': -51.92, 'value': 40},
-                {'title': 'Europa', 'lat': 54.52, 'lon': 15.25, 'value': 20},
-                {'title': 'Asia', 'lat': 34.04, 'lon': 100.61, 'value': 15},
-                {'title': 'Norteamérica', 'lat': 54.52, 'lon': -105.25, 'value': 30},
-                {'title': 'África', 'lat': -0.02, 'lon': 17.15, 'value': 5},
-                {'title': 'Oceanía', 'lat': -25.27, 'lon': 133.77, 'value': 2}
-            ]
-        }
-        grafico_2_data = {
-            'title': 'Baneos en los últimos 6 meses',
-            'type': 'line',
-            'labels': ['Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago'],
-            'datasets': [{
-                'label': 'Total Baneos',
-                'data': [10, 15, 8, 12, 18, 30],
-                'borderColor': '#FF6384',
-                'tension': 0.2
-            }]
-        }
-
-    elif chart_id == 'graph-card-3':
-
-        grafico_1_data = {
-            'title': 'Usuarios Moderados por Continente',
-            'type': 'globe',
-            'data': [
-                {'title': 'Sudamérica', 'lat': -14.23, 'lon': -51.92, 'value': 25},
-                {'title': 'Europa', 'lat': 54.52, 'lon': 15.25, 'value': 18},
-                {'title': 'Asia', 'lat': 34.04, 'lon': 100.61, 'value': 10},
-                {'title': 'Norteamérica', 'lat': 54.52, 'lon': -105.25, 'value': 20},
-                {'title': 'África', 'lat': -0.02, 'lon': 17.15, 'value': 3},
-                {'title': 'Oceanía', 'lat': -25.27, 'lon': 133.77, 'value': 1}
-            ]
-        }
-        grafico_2_data = {
-            'title': 'Usuarios Moderados en los últimos 6 meses',
-            'type': 'line',
-            'labels': ['Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago'],
-            'datasets': [{
-                'label': 'Usuarios Moderados',
-                'data': [5, 8, 6, 9, 10, 15],
-                'borderColor': '#36A2EB', # Azul
-                'tension': 0.2
-            }]
-        }
-    
-    elif chart_id == 'graph-card-4':
-
-        grafico_1_data = {
-            'title': 'Artistas Moderados por Continente',
-            'type': 'globe',
-            'data': [
-                {'title': 'Sudamérica', 'lat': -14.23, 'lon': -51.92, 'value': 15},
-                {'title': 'Europa', 'lat': 54.52, 'lon': 15.25, 'value': 12},
-                {'title': 'Asia', 'lat': 34.04, 'lon': 100.61, 'value': 5},
-                {'title': 'Norteamérica', 'lat': 54.52, 'lon': -105.25, 'value': 10},
-                {'title': 'África', 'lat': -0.02, 'lon': 17.15, 'value': 2},
-                {'title': 'Oceanía', 'lat': -25.27, 'lon': 133.77, 'value': 1}
-            ]
-        }
-        grafico_2_data = {
-            'title': 'Artistas Moderados en los últimos 6 meses',
-            'type': 'line',
-            'labels': ['Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago'],
-            'datasets': [{
-                'label': 'Artistas Moderados',
-                'data': [5, 7, 2, 3, 8, 15],
-                'borderColor': '#FFCE56', # Amarillo
-                'tension': 0.2
-            }]
-        }
-
-    elif chart_id == 'graph-card-5':
-
-        grafico_1_data = {
-            'title': 'Alertas Pendientes por Continente',
-            'type': 'globe',
-            'data': [
-                {'title': 'Sudamérica', 'lat': -14.23, 'lon': -51.92, 'value': 10},
-                {'title': 'Europa', 'lat': 54.52, 'lon': 15.25, 'value': 14},
-                {'title': 'Asia', 'lat': 34.04, 'lon': 100.61, 'value': 5},
-                {'title': 'Norteamérica', 'lat': 54.52, 'lon': -105.25, 'value': 13},
-                {'title': 'África', 'lat': -0.02, 'lon': 17.15, 'value': 6},
-                {'title': 'Oceanía', 'lat': -25.27, 'lon': 133.77, 'value': 22}
-            ]
-        }
-        grafico_2_data = {
-            'title': 'Detalle Alertas Pendientes',
-            'type': 'bar',
-            'labels': ['Mal Uso', 'Hackeo', 'Pirateo', 'Cont. Inapropiado'],
-            'options': { # Opciones para apilar
-                'scales': {
-                    'x': { 'stacked': True },
-                    'y': { 'stacked': True }
-                }
-            },
-            'datasets': [
-                {
-                    'label': 'Reportes de Usuario',
-                    'data': [12, 19, 3, 5],
-                    'backgroundColor': '#36A2EB', # Azul
-                },
-                {
-                    'label': 'Reportes de Artista',
-                    'data': [8, 10, 2, 4],
-                    'backgroundColor': '#FFCE56', # Amarillo
-                }
-            ]
-        }
-
-    elif chart_id == 'graph-card-6':
-
-        grafico_1_data = {
-            'title': 'Alertas Realizadas por Continente',
-            'type': 'globe',
-            'data': [
-                {'title': 'Sudamérica', 'lat': -14.23, 'lon': -51.92, 'value': 23},
-                {'title': 'Europa', 'lat': 54.52, 'lon': 15.25, 'value': 17},
-                {'title': 'Asia', 'lat': 34.04, 'lon': 100.61, 'value': 6},
-                {'title': 'Norteamérica', 'lat': 54.52, 'lon': -105.25, 'value': 21},
-                {'title': 'África', 'lat': -0.02, 'lon': 17.15, 'value': 3},
-                {'title': 'Oceanía', 'lat': -25.27, 'lon': 133.77, 'value': 11}
-            ]
-        }
-        grafico_2_data = {
-            'title': 'Detalle Alertas Finalizadas',
-            'type': 'bar',
-            'labels': ['Mal Uso', 'Hackeo', 'Pirateo', 'Cont. Inapropiado'],
-            'options': { 'scales': { 'x': { 'stacked': True }, 'y': { 'stacked': True } } },
-            'datasets': [
-                {
-                    'label': 'Reportes de Usuario',
-                    'data': [120, 190, 30, 50],
-                    'backgroundColor': '#36A2EB',
-                },
-                {
-                    'label': 'Reportes de Artista',
-                    'data': [80, 100, 20, 40],
-                    'backgroundColor': '#FFCE56',
-                }
-            ]
-        }
-
-    else:
-        grafico_1_data['title'] = 'error'
-        grafico_2_data['title'] = 'error'
-
-    data = {
-        'grafico_1_data': grafico_1_data,
-        'grafico_2_data': grafico_2_data,
-    }
-
-    return JsonResponse(data)
-
-
-def alert(request, perfil_id): #Alertas
-    perfil = PERFIL.objects.get(id=perfil_id)
-
-    if request.method == "POST":
-        form = alertaMODERADORForm(request.POST)
-        if form.is_valid():
-            mensaje = form.save(commit=False)
-            mensaje.emisor = PERFIL.objects.get(nombre=request.session['moderador'])  # Asignar un emisor predeterminado
-            mensaje.save()
-            return redirect('alert')
-    else:
-        form = alertaMODERADORForm()
-
-    
-    context = {
-        'perfil': perfil,
-        'form': form,
-    }
-
-    return render(request, '4_moderador/2_funcionAlert.html', context)
-
-def moderate(request, perfil_id): #banear
-    perfil = PERFIL.objects.get(id=perfil_id)
-
-    context = {
-        'perfil': perfil,
-    }
-
-    return render(request, '4_moderador/2_funcionBan.html', context)
-
-
-
-
-
-
-# ========== PLAYLIST ==========
-def create_playlist(request):
-    if request.method == "POST":
-        playlist_name = request.POST.get("playlist_name")
-        img_src = request.POST.get("img_src")
-        
-        # Si no se proporciona imagen, usar una por defecto
-        if not img_src:
-            img_src = "/static/images/playlist1.jpg"
-        
-        # Crear la playlist en la base de datos
-        playlist_obj = Playlist.objects.create(name=playlist_name, img_src=img_src)
-        
-        # Guardar el ID de la playlist en la sesión
-        request.session['active_playlist_id'] = playlist_obj.id
-        
-        return redirect('playlistV')
-    
-    return redirect('playlistV')
-
-def add_song(request):
-    if request.method == "POST":
-        playlist_id = request.session.get('active_playlist_id')
-        
-        if not playlist_id:
-            return JsonResponse({'error': 'No hay playlist activa'}, status=400)
-        
-        try:
-            playlist_obj = Playlist.objects.get(id=playlist_id)
-            song_text = request.POST.get('song_text')
-            img_src = request.POST.get('img_src')
-            
-            # Crear o obtener la canción (puede existir en otras playlists)
-            song, created = Song.objects.get_or_create(
-                song_text=song_text,
-                defaults={'img_src': img_src}
-            )
-            
-            # Actualizar img_src si la canción ya existía pero con otra imagen
-            if not created and song.img_src != img_src:
-                song.img_src = img_src
-                song.save()
-            
-            # Verificar si la canción ya está en esta playlist
-            if playlist_obj.songs.filter(id=song.id).exists():
-                return JsonResponse({'error': 'La canción ya existe en la playlist'}, status=400)
-            
-            # Agregar la canción a la playlist
-            playlist_obj.songs.add(song)
-            
-            return JsonResponse({
-                'success': True,
-                'song_id': song.id,
-                'song_text': song.song_text,
-                'img_src': song.img_src
-            })
-            
-        except Playlist.DoesNotExist:
-            return JsonResponse({'error': 'Playlist no encontrada'}, status=404)
-    
-    return JsonResponse({'error': 'Método no permitido'}, status=405)
-
-def remove_song(request):
-    if request.method == "POST":
-        song_id = request.POST.get('song_id')
-        playlist_id = request.session.get('active_playlist_id')
-        
-        if not playlist_id:
-            return JsonResponse({'error': 'No hay playlist activa'}, status=400)
-        
-        try:
-            playlist_obj = Playlist.objects.get(id=playlist_id)
-            song = Song.objects.get(id=song_id)
-            
-            # Remover la canción de la playlist (no la elimina de la BD)
-            playlist_obj.songs.remove(song)
-            
-            return JsonResponse({'success': True})
-        except Playlist.DoesNotExist:
-            return JsonResponse({'error': 'Playlist no encontrada'}, status=404)
-        except Song.DoesNotExist:
-            return JsonResponse({'error': 'Canción no encontrada'}, status=404)
-    
-    return JsonResponse({'error': 'Método no permitido'}, status=405)
-
 def userStatsV(request, perfil_id):
-    perfil = PERFIL.objects.get(id=perfil_id)
-    mensajes = alertaMODERADOR.objects.filter(receptor=perfil).order_by('-fechaEnvio')
+    perfil = get_object_or_404(PERFIL, id=perfil_id)
+    mensajes = REGISTRO_MODERADOR.objects.filter(perfil_afectado=perfil).order_by('-fecha')
 
     return render(request, "1_usuario/dashboardUser.html", {
         'perfil': perfil,
         'mensajes': mensajes
     })
+
+
+
+
+
+
+
+
+#                                                   ==========================
+#                                                   ====== ADMINISTRADOR ======
+#                                                   ==========================
+def admin(request): #Administrador
+    return render(request, '3_admin/admin.html')
+
+def moder(request, perfil_id): #Moderador
+    perfil = get_object_or_404(PERFIL, id=perfil_id, rol='moderator')
+
+    moderated_statuses = Q(estado_moderacion='alerta') | Q(estado_moderacion = 'ban')
+
+    n_alertas = PERFIL.objects.filter(estado_moderacion = 'alerta').count()
+    n_baneos = PERFIL.objects.filter(estado_moderacion = 'ban').count()
+    all_moderated_profiles = PERFIL.objects.filter(moderated_statuses)
+    u_moderados = all_moderated_profiles.filter(rol='user').count()
+    a_moderados = all_moderated_profiles.filter(rol='artist').count()
+    n_pendientes = PERFIL.objects.filter(estado_moderacion = 'en_espera').count()
+    n_finalizados = all_moderated_profiles.count()
+
+    context = {
+        'perfil': perfil,
+        'n_alertas': n_alertas,
+        'n_baneos': n_baneos,
+        'u_moderados': u_moderados,
+        'a_moderados': a_moderados,
+        'n_pendientes': n_pendientes,
+        'n_finalizados': n_finalizados,
+    }
+
+    return render(request, '4_moderador/1_moderHome.html', context)
+
+
+# ========== COMPLEMENTOS ADMINISTRADOR ==========
+CONTINENT_MAP = {
+    'America': (54.52, -105.25, 'América Global'), 
+    'Europa': (54.52, 15.25, 'Europa'),
+    'Asia': (34.04, 100.61, 'Asia'),
+    'Africa': (-0.02, 17.15, 'África'),
+    'Oceania': (-25.27, 133.77, 'Oceanía'),
+}
+
+def get_monthly_trend_data(status_values, target_role=None):
+    six_months_ago = date.today() - timedelta(days=180)
+
+    query = REGISTRO_MODERADOR.objects.filter(
+        action_status__in=status_values,
+        fecha__gte=six_months_ago
+    )
+    
+    if target_role:
+        query = query.filter(perfil_afectado__rol=target_role)
+    
+    monthly_data = REGISTRO_MODERADOR.objects.filter(
+        action_status__in=status_values,
+        fecha__gte=six_months_ago
+    ).annotate(
+        month_start=TruncMonth('fecha')
+    ).values('month_start').annotate(
+        total=Count('id')
+    ).order_by('month_start')
+
+    labels = [m['month_start'].strftime('%b') for m in monthly_data]
+    data_values = [m['total'] for m in monthly_data]
+    
+    return labels, data_values
+
+
+def get_globe_data(status_values, target_role=None):
+    q_filter = Q(estado_moderacion__in=status_values)
+    
+    if target_role:
+        q_filter &= Q(rol=target_role)
+
+    continent_counts = PERFIL.objects.filter(q_filter).values('ubicacion').annotate(
+        value=Count('id')
+    )
+    
+    globe_data = []
+    for count_item in continent_counts:
+        ubicacion_db = count_item['ubicacion']
+        count_value = count_item['value']
+        coords = CONTINENT_MAP.get(ubicacion_db)
+        
+        if coords:
+            lat, lon, title = coords
+            
+            globe_data.append({
+                'title': title,
+                'lat': lat,
+                'lon': lon,
+                'value': count_value
+            })
+            
+    return globe_data
+
+
+STATUS_ALERTA = ['ALERT']
+STATUS_BAN = ['BAN']
+STATUS_MODERADO = ['ALERT', 'BAN']
+STATUS_PENDIENTE = ['En_espera']
+
+
+def get_moder_data(request, chart_id): 
+    
+
+    if chart_id == 'graph-card-1':
+        status = STATUS_ALERTA
+        role = None
+        color = '#8EFAB4'
+        title_g1 = 'Alertas por Continente'
+        title_g2 = 'Alertas en los últimos 6 meses'
+        
+    elif chart_id == 'graph-card-2': 
+        status = STATUS_BAN
+        role = None
+        color = '#FF6384'
+        title_g1 = 'Baneos por Continente'
+        title_g2 = 'Baneos en los últimos 6 meses'
+
+    elif chart_id == 'graph-card-3':
+        status = STATUS_MODERADO
+        role = 'user'
+        color = '#36A2EB'
+        title_g1 = 'Usuarios Moderados por Continente'
+        title_g2 = 'Usuarios Moderados en los últimos 6 meses'
+        
+    elif chart_id == 'graph-card-4': 
+        status = STATUS_MODERADO
+        role = 'artist'
+        color = '#FFCE56'
+        title_g1 = 'Artistas Moderados por Continente'
+        title_g2 = 'Artistas Moderados en los últimos 6 meses'
+
+        globe_data = get_globe_data(status, target_role=role) 
+        labels, data_values = get_monthly_trend_data(status, target_role=role)
+
+    elif chart_id == 'graph-card-5':
+        status = STATUS_PENDIENTE
+        role = None
+        color = '#FFCE56'
+        title_g1 = 'Alertas Pendientes por Continente'
+        title_g2 = 'Detalle Alertas Pendientes'
+
+        globe_data = get_globe_data(status, target_role=role)
+        
+        grafico_1_data = get_globe_data(status, target_role=role)
+        return JsonResponse({
+            'grafico_1_data': grafico_1_data,
+            'grafico_2_data': {
+                'title': title_g2,
+                'type': 'bar',
+                'labels': ['Mal Uso', 'Hackeo', 'Pirateo', 'Cont. Inapropiado'],
+                'options': { 'scales': { 'x': { 'stacked': True }, 'y': { 'stacked': True } } },
+                'datasets': [
+                    {'label': 'Reportes de Usuario', 'data': [12, 19, 3, 5], 'backgroundColor': '#36A2EB'},
+                    {'label': 'Reportes de Artista', 'data': [8, 10, 2, 4], 'backgroundColor': '#FFCE56'},
+                ]
+            }
+        })
+
+    elif chart_id == 'graph-card-6': 
+        status = STATUS_MODERADO
+        role = None
+        color = '#36A2EB'
+        title_g1 = 'Alertas Realizadas por Continente'
+        title_g2 = 'Detalle Alertas Finalizadas'
+        
+        grafico_1_data = get_globe_data(status, target_role=role)
+        return JsonResponse({
+            'grafico_1_data': grafico_1_data,
+            'grafico_2_data': {
+                'title': title_g2,
+                'type': 'bar',
+                'labels': ['Mal Uso', 'Hackeo', 'Pirateo', 'Cont. Inapropiado'],
+                'options': { 'scales': { 'x': { 'stacked': True }, 'y': { 'stacked': True } } },
+                'datasets': [
+                    {'label': 'Reportes de Usuario', 'data': [120, 190, 30, 50], 'backgroundColor': '#36A2EB'},
+                    {'label': 'Reportes de Artista', 'data': [80, 100, 20, 40], 'backgroundColor': '#FFCE56'},
+                ]
+            }
+        })
+    
+    globe_data = get_globe_data(status, target_role=role)
+    labels, data_values = get_monthly_trend_data(status)
+    
+    grafico_1_data = {'title': title_g1, 'type': 'globe', 'data': globe_data}
+    grafico_2_data = {
+        'title': title_g2,
+        'type': 'line', 
+        'labels': labels,
+        'datasets': [{'label': 'Total', 'data': data_values, 'borderColor': color, 'tension': 0.2}]
+    }
+
+    data = {'grafico_1_data': grafico_1_data, 'grafico_2_data': grafico_2_data}
+    return JsonResponse(data)
+
+
+def moderate(request, perfil_id): #banear
+    perfil = get_object_or_404(PERFIL, id=perfil_id, rol='moderator')
+    
+    target_profiles = PERFIL.objects.filter(
+        Q(rol='user') | Q(rol='artist')
+    ).order_by('username')
+    
+    form = RegistroModeradorForm()
+    
+    
+    context = {
+        'perfil': perfil,
+        'perfil_moderador': perfil,
+        'target_profiles': target_profiles, 
+        'form': form, 
+    }
+
+    return render(request, '4_moderador/2_funcionBan.html', context)
+
+def update_moderation_status(request, moderator_perfil_id):
+    REDIRECT_URL = 'moder' 
+    
+    if request.method == 'POST':
+        try:
+            moderator_perfil = PERFIL.objects.get(id=moderator_perfil_id, rol='moderator')
+        except PERFIL.DoesNotExist:
+            return redirect('loginPage') 
+
+        target_perfil_id = request.POST.get('target_perfil_id')
+        new_status = request.POST.get('new_status')
+        reason_text = request.POST.get('reason') 
+
+        if not target_perfil_id or not new_status:
+            return redirect(REDIRECT_URL, perfil_id=moderator_perfil_id) 
+
+        try:
+            target_perfil = PERFIL.objects.get(id=target_perfil_id)
+            
+            target_perfil.estado_moderacion = new_status
+            target_perfil.save() 
+            
+            REGISTRO_MODERADOR.objects.create(
+                perfil_afectado=target_perfil,
+                moderador_emisor=moderator_perfil,
+                action_status=new_status,
+                reason=reason_text
+            )
+
+        except PERFIL.DoesNotExist:
+            print(f"Error: Perfil objetivo {target_perfil_id} no encontrado.")
+        except Exception as e:
+            print(f"Error al guardar el registro de moderación: {e}")
+        
+        return redirect(REDIRECT_URL, perfil_id=moderator_perfil_id)
+
+    return redirect('moder', perfil_id=moderator_perfil_id)
+
+
+
+
+
+
+#                                                   ==========================
+#                                                   ========  PLAYLIST  ========
+#                                                   ==========================
+
+def playlistV(request, perfil_id): 
+    perfil = get_object_or_404(PERFIL, id=perfil_id, rol='user') 
+
+    all_artists = PERFIL.objects.filter(rol='artist').order_by('nombre')
+    
+    all_playlists = Playlist.objects.filter(owner=perfil).order_by('-created_at')
+
+    DEFAULT_PLAYLIST_IMG = '/static/images/playlist1.jpg'
+
+    for playlist in all_playlists:
+        if not playlist.img_src:
+            playlist.img_src = DEFAULT_PLAYLIST_IMG
+
+    playlist_obj = None
+    songs_list = []
+    
+    load_playlist_id = request.GET.get('playlist_id')
+    
+    if load_playlist_id:
+        try:
+            playlist_obj = Playlist.objects.get(id=int(load_playlist_id), owner=perfil)
+            songs_list = list(playlist_obj.songs.values('id', 'song_text', 'img_src'))
+        except Playlist.DoesNotExist:
+            pass
+
+    if playlist_obj and not playlist_obj.img_src:
+        playlist_obj.img_src = DEFAULT_PLAYLIST_IMG
+    
+    if not playlist_obj and all_playlists.exists():
+        playlist_obj = all_playlists.first() 
+        songs_list = list(playlist_obj.songs.values('id', 'song_text', 'img_src'))
+
+    context = {
+        'placeholder_text': 'Ingresa el nombre de tu playlist',
+        'playlist_name': playlist_obj.name if playlist_obj else None,
+        'playlist_id': playlist_obj.id if playlist_obj else 0, 
+        'songs': json.dumps(songs_list), 
+        'all_playlists': all_playlists,
+        'perfil': perfil,
+        'all_artists': all_artists, 
+    }
+    return render(request, '1_usuario/2_funcionPlaylist_v.html', context)
+
+
+#                                                   ==========================
+#                                                   = FUNCIONES CREAR PLAYLIST =
+#                                                   ==========================
+
+def create_playlist(request, perfil_id): 
+    
+    if request.method == 'POST':
+        try:
+            user_perfil = PERFIL.objects.get(id=perfil_id, rol='user')
+        except PERFIL.DoesNotExist:
+            return redirect('loginPage') 
+
+        playlist_name = request.POST.get('playlist_name')
+        img_src = request.POST.get('img_src')
+        
+        if playlist_name:
+            Playlist.objects.create(
+                name=playlist_name,
+                img_src=img_src,
+                owner=user_perfil
+            )
+            
+            return redirect('playlistV', perfil_id=user_perfil.id) 
+        
+        return redirect('playlistV', perfil_id=user_perfil.id) 
+
+    return redirect('loginPage')
+
+
+def get_artist_songs(request):
+    artist_id = request.GET.get('artist_id')
+    
+    if not artist_id:
+        return JsonResponse({'error': 'No artist ID provided'}, status=400)
+    
+    try:
+        songs_queryset = Song.objects.filter(artist_id=artist_id)
+        
+        songs_list = []
+        for song in songs_queryset:
+            img_url = song.img_src if song.img_src else '/static/images/default_1.jpg' 
+        
+            songs_list.append({
+                'id': song.id,
+                'song_text': song.song_text,
+                'img_src': img_url, 
+            })
+        
+        return JsonResponse({'songs': songs_list})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+
+def listen_playlist(request):
+    perfil_id = request.POST.get('perfil_id')
+    playlist_id = request.POST.get('playlist_id')
+    
+    if not perfil_id or not playlist_id:
+        return redirect('loginPage') 
+
+    try:
+        user_perfil = PERFIL.objects.get(id=perfil_id, rol='user') 
+        playlist = Playlist.objects.get(id=playlist_id, owner=user_perfil)
+    
+        for song in playlist.songs.all():
+            CANCION_REPRODUCCION.objects.create(
+                song=song,
+                listener=user_perfil,
+            )
+        
+        return redirect('playlistV', perfil_id=user_perfil.id)
+        
+    except (PERFIL.DoesNotExist, Playlist.DoesNotExist):
+        return redirect('loginPage')
+        
+    except Exception as e:
+        print(f"Error al registrar reproducción: {e}")
+        return redirect('loginPage')
+    
+
+def add_song(request):
+    if request.method == 'POST':
+        perfil_id = request.POST.get('perfil_id') 
+        playlist_id = request.POST.get('playlist_id')
+        song_id = request.POST.get('song_id')
+
+        if not perfil_id or not playlist_id or not song_id:
+            return JsonResponse({'success': False, 'error': 'Missing required IDs'}, status=400)
+
+        try:
+            user_perfil = PERFIL.objects.get(id=perfil_id)
+            playlist = Playlist.objects.get(id=playlist_id, owner=user_perfil) 
+            song = Song.objects.get(id=song_id)
+            
+            PlaylistSong.objects.get_or_create(playlist=playlist, song=song)
+            
+            return JsonResponse({
+                'success': True, 
+                'song_id': song_id, 
+                'song_text': song.song_text, 
+                'img_src': song.img_src
+            })
+
+        except (PERFIL.DoesNotExist, Playlist.DoesNotExist):
+            return JsonResponse({'success': False, 'error': 'Playlist not found or does not belong to user.'}, status=403)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+def remove_song(request):
+    if request.method == "POST":
+        playlist_id = request.POST.get('playlist_id') 
+        perfil_id = request.POST.get('perfil_id') 
+        song_id = request.POST.get('song_id')
+        
+        if not playlist_id or not perfil_id or not song_id:
+            return JsonResponse({'error': 'Missing required IDs'}, status=400)
+        
+        try:
+            user_perfil = PERFIL.objects.get(id=perfil_id)
+            playlist_obj = Playlist.objects.get(id=playlist_id, owner=user_perfil) 
+            
+            PlaylistSong.objects.filter(playlist=playlist_obj, song_id=song_id).delete()
+            
+            return JsonResponse({'success': True})
+        except (PERFIL.DoesNotExist, Playlist.DoesNotExist, Exception):
+            return JsonResponse({'error': 'No se pudo eliminar (Acceso denegado o no existe)'}, status=403)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+

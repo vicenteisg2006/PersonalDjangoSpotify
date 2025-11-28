@@ -9,6 +9,7 @@
 
         <!-- BootStrap -->
         <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+        <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
         <!-- Custom CSS -->
         <link rel="stylesheet" href="{% static 'css/styles.css' %}">
         <!-- Chart.js -->
@@ -122,8 +123,8 @@
             <!-- SideBar -->
             <div id= "sidebar" class= "collapsed">
                 <h4 class= "text-center py-3 border-bottom">Menú</h4>
-                <a href= "{% url 'artistV' perfil_id=perfil.id %}" class="text-center">Inicio</a>
-                <a href= "{% url 'artist_songs' perfil_id=perfil.id %}" class="text-center">Mis Canciones</a>
+                <a href= "{% url 'artistV' perfil_id %}" class="text-center">Inicio</a>
+                <a href= "{% url 'artist_songs' perfil_id %}" class="text-center">Mis Canciones</a>
                 <a href= "{% url 'login' %}" class="text-center">Log out</a>
             </div>
 

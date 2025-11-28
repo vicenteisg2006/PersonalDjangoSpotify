@@ -23,8 +23,10 @@
 
         <style>
             body {
-                background-color: #121212 !important;
-                color: #fff;
+                /* background-color: #121212 !important; */
+                /* color: #fff; */
+                background-color: #b1d3d4;
+                color: #111;
                 font-family: 'Inter', sans-serif;
             }
             #sidebar {
@@ -56,7 +58,8 @@
                 z-index: 1000;
             }
             .navbar {
-                background-color: #1db954 !important;
+                /* background-color: #1db954 !important; */
+                background-color: #5A9AC8 !important;
             }
             .navbar-brand {
                 color: white !important;
@@ -109,7 +112,6 @@
             <div id= "sidebar" class= "collapsed">
                 <h4 class= "text-center py-3 border-bottom">Menú</h4>
                 <a href= "{% url 'moder' perfil_id=perfil.id %}" class="text-center">Inicio</a>
-                <a href= "{% url 'alert' perfil_id=perfil.id %}" class="text-center">Alert</a>
                 <a href= "{% url 'moderate' perfil_id=perfil.id %}" class="text-center">Moderate</a>
                 <a href= "{% url 'login' %}" class="text-center">Log out</a>
             </div>
@@ -125,10 +127,10 @@
         <!-- Footer -->
         <footer class= "container py-4 text-muted small border-top mt-5">
             <div class= "d-flex flex-column align-items-center">
-                <span style="color: white;">SPOTIFY MODERATOR</span>
-                <span style="color: white;">Taller de Visualizacion de Datos, {% now "Y" %}</span>
-                <span style="color: white;">Profesor Ignacio Villarroel</span>
-                <span style="color: white;">Maria Emilia, Josefa, Jose Tomas, Benjamin, Vicente</span>
+                <span style="color: #5C6ACB;">SPOTIFY MODERATOR</span>
+                <span style="color: #5C6ACB;">Taller de Visualizacion de Datos, {% now "Y" %}</span>
+                <span style="color: #5C6ACB;">Profesor Ignacio Villarroel</span>
+                <span style="color: #5C6ACB;">Maria Emilia, Josefa, Jose Tomas, Benjamin, Vicente</span>
             </div>
         </footer>
     
