@@ -1,0 +1,174 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}Spotify{% endblock %}</title>
+
+        <!-- BootStrap -->
+        <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+        <!-- Bootstrap Icons -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="{% static 'css/styles.css' %}?v={% now 'U' %}">
+        <!-- Chart.js -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        <style>
+            body {
+                background-color: #121212 !important;
+                color: #fff;
+            }
+            #sidebar {
+                position: fixed; /**/
+                z-index:1030; /**/
+                min-width: 220px;
+                max-width: 220px;
+                min-height: 100vh;
+                background: #1a1d20;
+                color: white;
+                transition: all 0.3s;
+            }
+            #sidebar a{
+                color: white;
+                text-decoration: none;
+                display: block;
+                padding: 12px 20px;
+            }
+            #sidebar.collapsed {
+                margin-left: -220px;
+            }
+            #content.expanded {
+                margin-left: 10px;
+            }
+            #toggle-btn {
+                position: fixed;
+                top: 15px;
+                left: 20px;
+                z-index: 1000;
+            }
+            input::placeholder {
+                color: #ffffffb3 !important;
+                opacity: 1 !important;
+            }
+        </style>
+
+        {% block extra_head %}{% endblock %}
+    </head>
+    <body>
+        <!-- Navbar -->
+        <nav class="navbar navbar-dark sticky-top" style="background-color: #000000;">
+            <div class="container-fluid d-flex align-items-center">
+
+                <!-- Cosas del navBar --> 
+                <div class="d-flex align-items-center gap-2">
+
+                    <!-- Boton sideBar -->
+                    <button id="sidebar-Toggle-Button" class="btn btn-outline-light me-2">☰</button>
+
+                    <!-- Logo Spotify -->
+                    <a class="navbar-brand mb-0" style="color: white;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="33" fill="white" class="bi bi-spotify" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0m3.669 11.538a.5.5 0 0 1-.686.165c-1.879-1.147-4.243-1.407-7.028-.77a.499.499 0 0 1-.222-.973c3.048-.696 5.662-.397 7.77.892a.5.5 0 0 1 .166.686m.979-2.178a.624.624 0 0 1-.858.205c-2.15-1.321-5.428-1.704-7.972-.932a.625.625 0 0 1-.362-1.194c2.905-.881 6.517-.454 8.986 1.063a.624.624 0 0 1 .206.858m.084-2.268C10.154 5.56 5.9 5.419 3.438 6.166a.748.748 0 1 1-.434-1.432c2.825-.857 7.523-.692 10.492 1.07a.747.747 0 1 1-.764 1.288"/></svg>
+                        Spotify
+                    </a>
+
+                </div>
+                
+                <!-- Buscador + boton explorar -->
+                <form class="d-flex position-relative flex-grow-1 ms-3 form-control-lg" role="search" style="max-width: 800px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16" style="position: absolute; left: 30px; top: 50%; transform: translateY(-50%); color: #6c757d; pointer-events: none;">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                    </svg>
+                    <input class="form-control me-2 rounded-pill btn-outline-light" type="search" placeholder="Que quieres escuchar?" aria-label="Search" style="padding-left: 40px; background-color: #1f2020; border: none; color: #1ed760b3;"/>
+                    <button class="btn btn-outline-light" type="submit">Explorar</button>
+                </form>
+                
+            </div>
+        </nav>
+
+        {% comment %} INICIO DE LA LÓGICA DE NOTIFICACIONES {% endcomment %}
+
+        {% if perfil.estado_moderacion == 'alert' %}
+            <div style="
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 2000; 
+            ">
+                <div class="alert alert-danger alert-dismissible fade show" role="alert" style="
+                    border-radius: 10px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+                    min-width: 300px;
+                ">
+                    <strong>AVISO:</strong> ALERTA: Su cuenta está bajo revisión. Evite incumplir las normas.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        {% elif perfil.estado_moderacion == 'en_espera' %}
+            <div style="
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 2000;
+            ">
+                <div class="alert alert-warning alert-dismissible fade show" role="alert" style="
+                    border-radius: 10px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+                    min-width: 300px;
+                ">
+                    <strong>AVISO:</strong> PENDIENTE: Hay una acción de moderación pendiente en su cuenta.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        {% endif %}
+
+        {% comment %} FIN DE LA LÓGICA DE NOTIFICACIONES {% endcomment %}
+
+        <!-- Utilidad sideBar -->
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                const toggleBtn = document.getElementById("sidebar-Toggle-Button");
+                const sidebar = document.getElementById("sidebar");
+                const content = document.getElementById("content");
+
+                toggleBtn.addEventListener("click", function() {
+                    sidebar.classList.toggle("collapsed");
+                    content.classList.toggle("expanded");
+                });
+            });
+        </script>
+
+        <!-- CONTENDOR PRINCIPAL de la pagina -->
+        <div class="d-flex">
+            <!-- SideBar -->
+            <div id= "sidebar" class= "collapsed">
+                <h4 class= "text-center py-3 border-bottom">Menú</h4>
+                <a href= "{% url 'userV' perfil_id=perfil.id %}" class="text-center">Inicio</a>
+                <a href="{% url 'userStatsV' perfil_id=perfil.id %}" class="text-center">Dashboard</a>
+                <a href= "{% url 'playlistV' perfil_id=perfil.id %}" class="text-center">Playlist</a>
+                <a href= "{% url 'login' %}" class="text-center">Log out</a>
+            </div>
+
+
+            <!-- Contenido -->
+            <main style= "width: 100%;" id="content">
+                {% block content %}{% endblock %}
+            </main>
+
+        </div>
+        <!-- FIN CONTENDOR principal -->
+
+        <!-- Footer -->
+        <footer class= "container py-4 text-muted small border-top mt-5">
+            <div class= "d-flex flex-column align-items-center">
+                <span style="color: white;">SPOTIFY FOR USERS</span>
+                <span style="color: white;">Taller de Visualizacion de Datos, {% now "Y" %}</span>
+                <span style="color: white;">Profesor Ignacio Villarroel</span>
+                <span style="color: white;">Maria Emilia, Josefa, Jose Tomas, Benjamin, Vicente</span>
+            </div>
+        </footer>
+    
+    </body>
+</html>

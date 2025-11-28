@@ -1,0 +1,267 @@
+/* =========================
+   ESTILOS GENERALES
+   ========================= */
+
+.card {
+    background-color: #0d0d0d;
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.card-title,
+.card-text,
+.navbar-brand {
+    color: #ffffff;
+}
+
+input.form-control {
+    color: #ffffff;
+}
+
+
+/* =========================
+   CARRUSEL PRINCIPAL
+   ========================= */
+
+#carouselExampleAutoplaying {
+    max-width: 100%;
+    overflow: hidden;
+}
+
+
+
+#carouselExampleAutoplaying .carousel-item {
+    height: 100%;
+}
+
+#carouselExampleAutoplaying .carousel-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; 
+}
+
+
+/* =========================
+   CARRUSEL SECUNDARIO (AAA)
+   ========================= */
+
+#carouselAAA {
+    height: 60vh;
+    overflow: hidden;
+    position: relative;
+}
+
+#carouselAAA .carousel-item {
+    height: 100%;
+}
+
+#carouselAAA img {
+    object-fit: cover;
+    height: 100%;
+    width: 100%;
+}
+
+.carousel-caption h5 {
+    color: #ffffff;
+}
+
+
+/* =========================
+   GALERIA DESLIZABLE
+   ========================= */
+
+.galeria-deslizable-wrapper {
+    overflow: hidden;
+    position: relative;
+    white-space: nowrap;
+    padding-bottom: 10px;
+}
+
+.galeria-deslizable-wrapper-inner {
+    overflow-x: scroll;
+    overflow-y: hidden;
+    padding-bottom: 20px;
+    margin-bottom: -20px;
+    cursor: grab;
+    user-select: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.galeria-deslizable-wrapper-inner:active {
+    cursor: grabbing;
+}
+
+.galeria-deslizable-wrapper-inner::-webkit-scrollbar {
+    display: none;
+}
+
+.galeria-deslizable {
+    display: flex;
+    gap: 25px;
+}
+
+
+/* =========================
+   ELEMENTOS DE FOTO
+   ========================= */
+
+.foto-item {
+    display: inline-block;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+img.foto-circular {
+    width: 180px !important;
+    height: 180px !important;
+    min-width: 180px !important;
+    min-height: 180px !important;
+    max-width: 180px !important;
+    max-height: 180px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    display: block !important;
+    transition: transform 0.3s ease;
+    pointer-events: none;
+}
+
+img.foto-circular:hover {
+    transform: scale(1.12);
+}
+
+img.foto-cuadrada {
+    width: 180px !important;
+    height: 180px !important;
+    min-width: 180px !important;
+    min-height: 180px !important;
+    max-width: 180px !important;
+    max-height: 180px !important;
+    border-radius: 10px !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    display: block !important;
+    transition: transform 0.3s ease;
+    pointer-events: none;
+}
+
+img.foto-cuadrada:hover {
+    transform: scale(1.12);
+}
+
+.nombre-foto {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #e9e9e9;
+}
+
+.foto-item .nombre-foto {
+    color: #e9e9e9;
+}
+
+.foto-item p {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: normal;
+    word-wrap: break-word;
+    max-width: 180px;
+}
+
+
+/* =========================
+   GALERIA DESLIZABLE DE CARDS
+   ========================= */
+
+.galeria-deslizable-wrapper-inner-cards {
+    overflow-x: scroll;
+    overflow-y: hidden;
+    padding: 20px 0;
+    cursor: grab;
+    user-select: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.galeria-deslizable-wrapper-inner-cards:active {
+    cursor: grabbing;
+}
+
+.galeria-deslizable-wrapper-inner-cards::-webkit-scrollbar {
+    display: none;
+}
+
+.galeria-deslizable-cards {
+    display: flex;
+    gap: 25px;
+    padding: 0 20px;
+}
+
+.card-item {
+    flex: 0 0 auto;
+    width: 280px;
+}
+
+.card-item .card {
+    height: 100%;
+    transition: transform 0.3s ease;
+}
+
+.card-item .card:hover {
+    transform: translateY(-5px);
+}
+
+.card-item .card-img-top {
+    height: 280px;
+    object-fit: cover;
+}
+
+
+/* =========================
+   MEDIA QUERIES
+   ========================= */
+
+@media (min-width: 1200px) {
+    img.foto-circular {
+        width: 250px !important;
+        height: 250px !important;
+        min-width: 250px !important;
+        min-height: 250px !important;
+        max-width: 250px !important;
+        max-height: 250px !important;
+    }
+    
+    img.foto-cuadrada {
+        width: 250px !important;
+        height: 250px !important;
+        min-width: 250px !important;
+        min-height: 250px !important;
+        max-width: 250px !important;
+        max-height: 250px !important;
+    }
+    
+    .foto-item p {
+        max-width: 250px;
+    }
+    
+    .card-item {
+        width: 320px;
+    }
+    
+    .card-item .card-img-top {
+        height: 320px;
+    }
+}
+
+@media (max-width: 768px) {
+    .card-item {
+        width: 250px;
+    }
+    
+    .card-item .card-img-top {
+        height: 250px;
+    }
+}
+

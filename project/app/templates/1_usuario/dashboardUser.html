@@ -1,0 +1,395 @@
+{% extends "1_usuario/0_baseK.html" %}
+{% load static %}
+
+{% block title %}User Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --c1: #9A4694;
+        --c2: #B248AA;
+        --c3: #51AFB7;
+        --c4: #5A9AC8;
+        --c5: #5C6ACB;
+    }
+
+    /* Fondo claro solo para este dashboard */
+    body {
+        background-color: #eceff1 !important;
+        color: #111 !important;
+    }
+
+    .card-pill {
+        border-radius: 999px;
+    }
+
+    .card-soft {
+        border-radius: 28px;
+        border: none;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    }
+
+    .bg-panel {
+        background-color: rgba(90,154,200,0.12);
+    }
+
+    .bg-header-pill {
+        background: linear-gradient(90deg, var(--c2), var(--c3));
+    }
+
+    .bg-large-chart {
+        background-color: rgba(81,175,183,0.25);
+    }
+
+    .side-stat {
+        cursor: pointer;
+        transition: transform .18s ease, box-shadow .18s ease;
+        background-color: rgba(92,106,203,0.18);
+        color: #111;
+    }
+
+    .side-stat:hover,
+    .side-stat.active {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+        background-color: rgba(92,106,203,0.35);
+    }
+
+    .side-stat h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .side-stat .value {
+        font-size: 1.6rem;
+        font-weight: 700;
+    }
+
+    .chart-wrapper {
+        position: relative;
+        width: 100%;
+        height: 280px;
+    }
+    .chart-wrapper-lg {
+        height: 320px;
+    }
+
+    .card-soft.bg-light {
+        background-color: #e3f0ff !important;
+    }
+
+    .card-soft.bg-light h6 {
+        color: #333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="card card-soft bg-panel p-4">
+
+        <!-- HEADER SUPERIOR -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card card-pill bg-header-pill text-center py-3">
+                    <h2 class="mb-0 text-white fw-bold text-uppercase">usuario</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILA GRÁFICO PRINCIPAL + ESTADÍSTICAS DERECHA -->
+        <div class="row g-4 align-items-stretch mb-4">
+
+            <!-- Gráfico de línea grande -->
+            <div class="col-lg-9">
+                <div class="card card-soft bg-large-chart px-4 pt-3 pb-4">
+                    <h6 class="text-center mb-2">Tiempo escuchando música este mes</h6>
+                    <div class="chart-wrapper-lg">
+                        <canvas id="lineChartUsuario"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjetas de stats (clickeables) -->
+            <div class="col-lg-3 d-flex flex-column gap-3">
+
+                <div class="card card-pill side-stat active"
+                     data-metric="tiempo">
+                    <div class="card-body py-3 text-center">
+                        <h6 class="mb-0">Cuentas seguidas</h6>
+                        <div class="value">15</div>
+                    </div>
+                </div>
+
+                <div class="card card-pill side-stat"
+                     data-metric="canciones">
+                    <div class="card-body py-3 text-center">
+                        <h6 class="mb-0">Canciones guardadas</h6>
+                        <div class="value">135</div>
+                    </div>
+                </div>
+
+                <div class="card card-pill side-stat"
+                     data-metric="playlists">
+                    <div class="card-body py-3 text-center">
+                        <h6 class="mb-0">Playlists creados</h6>
+                        <div class="value">9</div>
+                    </div>
+                </div>
+
+                <div class="card card-pill side-stat"
+                     data-metric="albumes">
+                    <div class="card-body py-3 text-center">
+                        <h6 class="mb-0">Álbumes guardados</h6>
+                        <div class="value">60</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- FILA INFERIOR: BARRAS, PIE, RADAR -->
+        <div class="row g-4">
+
+            <!-- BARRAS -->
+            <div class="col-lg-4">
+                <div class="card card-soft bg-light px-3 pt-3 pb-4">
+                    <h6 class="text-center mb-2">
+                        Canciones que más escuchaste este mes
+                    </h6>
+                    <div class="chart-wrapper">
+                        <canvas id="barTopSongs"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PIE -->
+            <div class="col-lg-4">
+                <div class="card card-soft bg-light px-3 pt-3 pb-4">
+                    <h6 class="text-center mb-2">
+                        Géneros más escuchados
+                    </h6>
+                    <div class="chart-wrapper">
+                        <canvas id="pieGenres"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RADAR -->
+            <div class="col-lg-4">
+                <div class="card card-soft bg-light px-3 pt-3 pb-4">
+                    <h6 class="text-center mb-2">
+                        Estadísticas usuario
+                    </h6>
+                    <div class="chart-wrapper">
+                        <canvas id="radarStats"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div> <!-- card principal -->
+
+</div> <!-- container-fluid -->
+
+<script>
+    // ======================= PALETA =======================
+    const palette = {
+        c1: "#9A4694",
+        c2: "#B248AA",
+        c3: "#51AFB7",
+        c4: "#5A9AC8",
+        c5: "#5C6ACB"
+    };
+
+    // ======================= UTIL: DÍAS REALES DEL MES =======================
+    function getDaysOfCurrentMonth() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth(); // 0–11
+        const lastDay = new Date(year, month + 1, 0).getDate(); // 28–31
+        return Array.from({length: lastDay}, (_, i) => (i + 1).toString());
+    }
+
+    const lineLabels = getDaysOfCurrentMonth();
+    const totalDays  = lineLabels.length;
+
+    // Función helper para generar SERIES de ejemplo
+    function makeSerie(base, amplitude) {
+        return Array.from({length: totalDays}, (_, i) => {
+            const wave = Math.sin(i / 4) * amplitude;
+            const trend = (i / totalDays) * amplitude;
+            return Math.max(0, Math.round(base + wave + trend));
+        });
+    }
+
+    // ======================= GRÁFICO DE LÍNEA =======================
+    const lineCtx = document.getElementById('lineChartUsuario').getContext('2d');
+
+    const lineConfigs = {
+        tiempo: {
+            label: "Minutos escuchados este mes",
+            data: makeSerie(40, 30)
+        },
+        canciones: {
+            label: "Canciones reproducidas este mes",
+            data: makeSerie(15, 10)
+        },
+        playlists: {
+            label: "Reproducciones desde playlists este mes",
+            data: makeSerie(5, 4)
+        },
+        albumes: {
+            label: "Reproducciones por álbum este mes",
+            data: makeSerie(8, 6)
+        }
+    };
+
+    const lineChart = new Chart(lineCtx, {
+        type: 'line',
+        data: {
+            labels: lineLabels,
+            datasets: [{
+                label: lineConfigs.tiempo.label,
+                data: lineConfigs.tiempo.data,
+                borderColor: palette.c4,
+                backgroundColor: "rgba(90,154,200,0.15)",
+                borderWidth: 2,
+                tension: 0.35,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }},
+            scales: {
+                x: {
+                    title: { display: true, text: "Días del mes" },
+                    grid: { display: false },
+                    ticks: { color: "#333" }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: "rgba(0,0,0,0.08)" },
+                    ticks: { color: "#333" }
+                }
+            }
+        }
+    });
+
+    function updateLineChart(metricKey) {
+        const config = lineConfigs[metricKey];
+        lineChart.data.datasets[0].label = config.label;
+        lineChart.data.datasets[0].data = config.data;
+        lineChart.update();
+    }
+
+    // Click en tarjetas laterales
+    document.querySelectorAll('.side-stat').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.side-stat').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+
+            const metric = card.dataset.metric;
+            updateLineChart(metric);
+        });
+    });
+
+    // ======================= BARRAS: Canciones del mes =======================
+    const barCtx = document.getElementById('barTopSongs').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: ["Canción 1","Canción 2","Canción 3","Canción 4","Canción 5"],
+            datasets: [{
+                label: "Reproducciones",
+                data: [153, 234, 167, 250, 304],
+                backgroundColor: palette.c4,
+                borderColor: palette.c4,
+                borderWidth: 1,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }},
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: "#333" }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: "rgba(0,0,0,0.08)" },
+                    ticks: { color: "#333" }
+                }
+            }
+        }
+    });
+
+    // ======================= PIE: Géneros =======================
+    const pieCtx = document.getElementById('pieGenres').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: ["URBANA","ROCK","POP","JAZZ","CLÁSICA"],
+            datasets: [{
+                data: [35, 25, 20, 10, 10],
+                backgroundColor: [
+                    palette.c2,
+                    palette.c1,
+                    palette.c3,
+                    palette.c4,
+                    palette.c5
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { boxWidth: 16 } }
+            }
+        }
+    });
+
+    // ======================= RADAR: Estadísticas usuario =======================
+    const radarCtx = document.getElementById('radarStats').getContext('2d');
+    new Chart(radarCtx, {
+        type: 'radar',
+        data: {
+            labels: ["tiempo","creación","variedad","exploración","interacción"],
+            datasets: [{
+                label: "Nivel",
+                data: [90, 75, 60, 70, 55],
+                borderColor: palette.c5,
+                backgroundColor: "rgba(92,106,203,0.3)",
+                pointBackgroundColor: palette.c5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: { color: "rgba(0,0,0,0.1)" },
+                    grid: { color: "rgba(0,0,0,0.12)" },
+                    suggestedMin: 0,
+                    suggestedMax: 100,
+                    pointLabels: { color: "#333" }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+
+{% endblock %}

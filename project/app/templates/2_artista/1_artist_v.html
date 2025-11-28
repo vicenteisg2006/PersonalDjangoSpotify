@@ -1,0 +1,312 @@
+<!-- LLamada a base KA -->
+{% extends '2_artista/0_baseKA.html' %}
+{% block title %} Spotify Artist: {{artist_name}} {% endblock %}
+
+<!-- Contenido especifico ARTISTA -->
+{% block content %}
+{% load static %}
+{% load humanize %}
+
+    <!-- Header -->
+    <div class="container mt-5">
+        <h2 class="display-2 mb-3">Bienvenido, <span style="color:#8efab4;">{{artist_name}}</span></h2>
+        <p class="lead text-secondary">Rastrea tu desempeño, conoce a tu público y conecta.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="container mt-4">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Total Streams</h5>
+                    <p class="display-5">{{ total_streams|intcomma }}</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Monthly Listeners</h5>
+                    <p class="display-5">{{ monthly_listeners|intcomma }}</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Followers</h5>
+                    <p class="display-5">{{ followers|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts & Lists -->
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card p-3 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">Monthly Trend</h5>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-success active" id="btnStreams" onclick="showStreams()">Streams</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="btnListeners" onclick="showListeners()">Oyentes</button>
+                        </div>
+                    </div>
+                    <canvas id="streamsChart"></canvas>
+                    <!-- <canvas id="continentalChart" class="mt-4"></canvas> -->
+                </div>
+            </div>
+
+            <div class="col-md-4 text-center">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Top Songs</h5>
+            
+                    <ul class="list-group list-group-flush">
+                        {% for song in top_songs %}
+                        <li class="list-group-item">
+                            {{ song.name }} — {{ song.streams|intcomma }} streams
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- <div class="col-md-4 text-center">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Top Listeners</h5>
+
+                    <ul class="list-group list-group-flush">
+                        {% for user in top_viewers %}
+                        <li class="list-group-item">
+                            {{ user.name }} - {{ user.streams|intcomma }} times played
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div> -->
+
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Por Continente segun Mes</h5>
+                    <canvas id="continentalChart" class="mt-4"></canvas>
+                </div>
+            </div>
+
+            <div class="col-md-4 text-center">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Top Listeners</h5>
+
+                    <ul class="list-group list-group-flush">
+                        {% for user in top_viewers %}
+                        <li class="list-group-item">
+                            {{ user.name }} - {{ user.streams|intcomma }} times played
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mx-auto">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title text-center">Streams por Album</h5>
+                    <canvas id="albumsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const streams_chart = JSON.parse('{{ streams_chart|escapejs }}');
+        const listeners_chart = JSON.parse('{{ listeners_chart|escapejs }}');
+        const continental_data = JSON.parse('{{ continental_data|escapejs }}');
+        const continental_listeners_data = JSON.parse('{{ continental_listeners_data|escapejs }}');
+        const albums_chart = JSON.parse('{{ albums_chart|escapejs }}');
+
+        const ctx1 = document.getElementById('streamsChart');
+        const ctx2 = document.getElementById('continentalChart');
+        const ctx3 = document.getElementById('albumsChart');
+
+        let mainChart = null;
+        let continentalChart = null;
+        let currentMode = 'streams';
+        let currentMonth = null;
+
+        function createMainChart(mode) {
+            if (mainChart) {
+                mainChart.destroy();
+            }
+
+            const data = mode === 'streams' ? streams_chart : listeners_chart;
+            const label = mode === 'streams' ? 'STREAMS' : 'OYENTES';
+            const tooltipSuffix = mode === 'streams' ? ' streams' : ' oyentes';
+
+            mainChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: label,
+                        data: data.values,
+                        borderColor: 'rgb(30, 215, 96)',
+                        tension: 0.3,
+                        fill: true,
+                        backgroundColor: 'rgba(30, 215, 96, 0.1)',
+                        pointRadius: 5,
+                        pointHoverRadius: 12,
+                        pointBackgroundColor: 'rgb(30, 215, 96)',
+                        pointBorderColor: 'rgb(30, 215, 96)',
+                        pointHoverBackgroundColor: 'rgb(30, 215, 96)',
+                        pointHoverBorderColor: 'white',
+                        pointBorderWidth: 1.2,
+                        pointHoverBorderWidth: 3
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: { labels: { color: 'white' } },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.parsed.y.toLocaleString()}${tooltipSuffix}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#ccc' } },
+                        y: { ticks: { color: '#ccc' } }
+                    },
+                    onClick: (event, chartElement) => {
+                        if (chartElement.length > 0) {
+                            const index = chartElement[0].index;
+                            const month = data.labels[index];
+                            currentMonth = month;
+                            updateContinentalChart(month, currentMode);
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateContinentalChart(month, mode) {
+            const data = mode === 'streams' ? continental_data[month] : continental_listeners_data[month];
+            const labels = Object.keys(data);
+            const values = Object.values(data);
+            const label = mode === 'streams' ? 'Streams' : 'Oyentes';
+
+            // Colores por continente
+            const continentColors = {
+                'Asia': '#FF6B9D',
+                'Africa': '#FFD93D',
+                'America': '#4ECDC4',
+                'Europa': '#95E1D3',
+                'Oceania': '#C77DFF'
+            };
+
+            const backgroundColor = labels.map(continent => continentColors[continent] || '#1db954');
+
+            if (continentalChart) {
+                continentalChart.destroy();
+            } 
+            
+            continentalChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `${month} - ${label}`,
+                        data: values,
+                        backgroundColor: backgroundColor,
+                        borderColor: '#191414',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: { labels: { color: 'white' } },
+                        title: {
+                            display: true,
+                            color: 'white',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const value = ctx.parsed.y.toLocaleString();
+                                    const tooltipLabel = mode === 'streams' ? ' streams' : ' oyentes';
+                                    return `${value}${tooltipLabel}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#ccc' } },
+                        y: { ticks: { color: '#ccc' } }
+                    }
+                }
+            });
+        }
+
+        function showStreams() {
+            currentMode = 'streams';
+            document.getElementById('btnStreams').classList.add('active');
+            document.getElementById('btnListeners').classList.remove('active');
+            createMainChart('streams');
+        }
+
+        function showListeners() {
+            currentMode = 'listeners';
+            document.getElementById('btnListeners').classList.add('active');
+            document.getElementById('btnStreams').classList.remove('active');
+            createMainChart('listeners');
+        }
+
+
+        // Inicializar el gráfico principal
+        createMainChart('streams');
+
+        // Crear gráfico de álbumes tipo Doughnut
+        new Chart(ctx3, {
+            type: 'doughnut',
+            data: {
+                labels: albums_chart.labels,
+                datasets: [{
+                    data: albums_chart.data,
+                    backgroundColor: albums_chart.backgroundColor,
+                    borderColor: '#191414',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { 
+                        labels: { 
+                            color: 'white',
+                            font: { size: 14 },
+                            padding: 15
+                        },
+                        position: 'right'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const label = ctx.label || '';
+                                const value = ctx.parsed.toLocaleString();
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((ctx.parsed / total) * 100).toFixed(1);
+                                return `${label}: ${value} streams (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: true
+            }
+        });
+
+    </script>
+
+
+
+
+{% endblock %}

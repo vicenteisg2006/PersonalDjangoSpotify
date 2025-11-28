@@ -1,0 +1,276 @@
+<!-- LLamada a baseK -->
+{% extends "1_usuario/0_baseK.html" %}
+{% block title %} User Profile {% endblock %}
+
+{% block head_extra %}
+{% endblock %}
+
+<!-- Contenido especifico USER -->
+{% block content %}
+{% load static %}
+
+    <!-- Carousel 1 -->
+    <div id="carouselExampleAutoplaying" class="carousel slide mt-3" data-bs-ride="carousel">
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img src="{% static 'images/banner1.png' %}" class="d-block w-100" alt="...">
+            </div>
+            <div class="carousel-item">
+                <img src="{% static 'images/banner3.png' %}" class="d-block w-100" alt="...">
+            </div>
+            <div class="carousel-item">
+                <img src="{% static 'images/banner2.png' %}" class="d-block w-100" alt="...">
+            </div>
+        </div>
+
+        <button class="carousel-control-prev" type="button" data-bs-target="#carouselExampleAutoplaying" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#carouselExampleAutoplaying" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+
+
+    <!-- Carrusel artistas circulares -->
+    <h2 class="font-weight-bold p-4 text-center">Top Artistas Globales</h2>
+    <div class="galeria-deslizable-wrapper my-4">
+       
+        <div class="galeria-deslizable-wrapper-inner">
+            <div class="galeria-deslizable">
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2024/08/1.-The-Weeknd.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">The Weeknd</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2024/08/2.-Bruno-Mars.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Bruno Mars</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2025/02/3.-Ed-Sheeran.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Ed Sheeran</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2025/02/4.-Justin-Bieber.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Justin Bieber</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2025/01/3.-Lady-Gaga.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Lady Gaga</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2024/04/6.-Coldplay.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Coldplay</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2024/08/1.-The-Weeknd.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">The Weeknd</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2024/08/2.-Bruno-Mars.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Bruno Mars</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2025/02/3.-Ed-Sheeran.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Ed Sheeran</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2025/02/4.-Justin-Bieber.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Justin Bieber</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2025/01/3.-Lady-Gaga.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Lady Gaga</p>
+                </div>
+
+                <div class="foto-item text-center">
+                    <img src="https://routenote.com/blog/wp-content/uploads/2024/04/6.-Coldplay.jpeg" class="foto-circular mb-2">
+                    <p class="nombre-foto">Coldplay</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Carousel BANNER -->
+        <div id="carouselAAA" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-indicators">
+                <button type="button" data-bs-target="#carouselAAA" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+                <button type="button" data-bs-target="#carouselAAA" data-bs-slide-to="1" aria-label="Slide 2"></button>
+                <button type="button" data-bs-target="#carouselAAA" data-bs-slide-to="2" aria-label="Slide 3"></button>
+            </div>
+
+            <div class="carousel-inner">
+                <div class="carousel-item active">
+                    <img src="{% static 'images/billieEilishnueva.jpeg' %}" class="d-block w-100" alt="...">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Artist u might like </h5>
+                    </div>
+                </div>
+
+                <div class="carousel-item">
+                    <img src="{% static 'images/taylor_swiftbanner.png' %}" class="d-block w-100" alt="...">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Artist u might like </h5>
+                    </div>
+                </div>
+
+      
+            </div>
+
+            <button class="carousel-control-prev" type="button" data-bs-target="#carouselAAA" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+            </button>
+
+            <button class="carousel-control-next" type="button" data-bs-target="#carouselAAA" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+            </button>
+        </div>
+
+        <!-- Playlists Favoritas -->
+        <h2 class="font-weight-bold p-4 text-center">Tus Playlists Favoritas</h2>
+        <div class="galeria-deslizable-wrapper my-4">
+            <div class="galeria-deslizable-wrapper-inner-cards">
+                <div class="galeria-deslizable">
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/salsa.png' %}" class="foto-cuadrada mb-2">
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/playlist3.jpg' %}" class="foto-cuadrada mb-2">
+                    </div>
+   
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/this_is_justin.png' %}" class="foto-cuadrada mb-2">
+                        
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/playlist7.jpg' %}" class="foto-cuadrada mb-2">
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/this_is_tyla.png' %}" class="foto-cuadrada mb-2">
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/playlist1.jpg' %}" class="foto-cuadrada mb-2">
+                    </div>
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/playlist5.jpg' %}" class="foto-cuadrada mb-2">
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/this_is_ricky.png' %}" class="foto-cuadrada mb-2">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Artistas Favoritos -->
+        <h2 class="font-weight-bold text-center">Tus Artistas Favoritos</h2>
+        <div class="galeria-deslizable-wrapper">
+            <div class="galeria-deslizable-wrapper-inner-cards">
+                <div class="galeria-deslizable">
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images\ariana_grande.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">Ariana Grande</p>
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/mac_miller.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">Mac Miller</p>
+                    </div>
+   
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/cardellino.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">Cardellino</p>
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/mitski.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">Mitski</p>
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/beabadoobee.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">beabadoobee</p>
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/milo_j.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">Milo j</p>
+                    </div>
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/zeballos.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">Zeballos</p>
+                    </div>
+
+                    <div class="foto-item text-center">
+                        <img src="{% static 'images/la_nueva_escuela.png' %}" class="foto-cuadrada mb-2">
+                        <p class="nombre-foto">LA NUEVA ESCUELA</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    
+ 
+    <!-- Fin contendor -->
+
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"  ></script>
+    
+    <script>
+        // Funcionalidad de arrastre para las galerías
+        function addDragFunctionality(selector) {
+            const sliders = document.querySelectorAll(selector);
+            
+            sliders.forEach(slider => {
+                let isDown = false;
+                let startX;
+                let scrollLeft;
+
+                slider.addEventListener('mousedown', (e) => {
+                    isDown = true;
+                    startX = e.pageX - slider.offsetLeft;
+                    scrollLeft = slider.scrollLeft;
+                });
+
+                slider.addEventListener('mouseleave', () => {
+                    isDown = false;
+                });
+
+                slider.addEventListener('mouseup', () => {
+                    isDown = false;
+                });
+
+                slider.addEventListener('mousemove', (e) => {
+                    if (!isDown) return;
+                    e.preventDefault();
+                    const x = e.pageX - slider.offsetLeft;
+                    const walk = (x - startX) * 2; // Multiplicador para velocidad de scroll
+                    slider.scrollLeft = scrollLeft - walk;
+                });
+            });
+        }
+
+        // Aplicar funcionalidad a todas las galerías
+        addDragFunctionality('.galeria-deslizable-wrapper-inner');
+        addDragFunctionality('.galeria-deslizable-wrapper-inner-cards');
+    </script>
+
+{% endblock %}
+<!-- FIN Contenido-->

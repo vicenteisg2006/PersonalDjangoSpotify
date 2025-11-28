@@ -1,0 +1,478 @@
+{% extends "1_usuario/0_baseK.html" %}
+{% block title %} Create Playlist {% endblock %}
+{% block extra_head %}
+{% load static %}
+<style>
+    .form-control::placeholder {
+        color: #adb5bd !important;
+        opacity: 1 !important;
+    }
+    
+    .form-control[name="playlist_name"] {
+        background-color: #fff !important;
+        color: #000 !important;
+    }
+
+    .foto-item {
+        cursor: pointer;
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .foto-item:hover {
+        transform: scale(1.05);
+    }
+
+    .foto-item:active {
+        transform: scale(0.98);
+    }
+
+    .playlist-link {
+        text-decoration: none;
+    }
+
+    .carousel-wrapper {
+        position: relative;
+        overflow: hidden;
+        padding: 0 50px;
+    }
+
+    .carousel-wrapper .galeria-deslizable-wrapper-inner-cards {
+        cursor: default !important;
+        overflow: hidden !important;
+        padding: 20px 0 !important;
+    }
+
+    .carousel-wrapper .galeria-deslizable-wrapper-inner-cards:active {
+        cursor: default !important;
+    }
+
+    .carousel-wrapper .playlist-link,
+    .carousel-wrapper .foto-item {
+        pointer-events: auto;
+    }
+
+    .carousel-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: rgba(30, 215, 96, 0.9);
+        color: white;
+        border: 2px solid white;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        transition: all 0.3s;
+        outline: none;
+    }
+
+    .carousel-arrow:hover {
+        background-color: rgba(30, 215, 96, 1);
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .carousel-arrow:active {
+        transform: translateY(-50%) scale(0.95);
+    }
+
+    .carousel-arrow:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        background-color: rgba(100, 100, 100, 0.5);
+    }
+
+    .carousel-arrow.left {
+        left: 5px;
+    }
+
+    .carousel-arrow.right {
+        right: 5px;
+    }
+
+    .galeria-deslizable {
+        scroll-behavior: smooth;
+    }
+
+    #playlistCarousel {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-behavior: smooth;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    #playlistCarousel::-webkit-scrollbar {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card text-center bg-dark text-white border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Total de canciones en la playlist</h5>
+                    <p id="songCount" class="card-text display-4 mb-0">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-5 text-center">
+    <h2 class="display-5 mb-3 fw-bold">Crea tu Playlist</h2>
+
+    <form method="POST" action="{% url 'create_playlist' perfil_id=perfil.id %}" class="mt-3">
+        {% csrf_token %}
+        <div class="w-50 mx-auto">
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" name="playlist_name" placeholder="{{ placeholder_text }}" value="{{ playlist_name|default:'' }}" required style="background-color: #2a2a2a !important; color: #fff !important; border-color: #444 !important;">
+            </div>
+            <div class="input-group mb-3">
+                <input type="url" class="form-control" name="img_src" placeholder="URL de la imagen (opcional)" style="background-color: #2a2a2a !important; color: #fff !important; border-color: #444 !important;">
+            </div>
+            <button class="btn btn-success w-100" type="submit">Crear</button>
+        </div>
+    </form>
+
+    {% if playlist_name %}
+        <h4 class="mt-4 text-success">Playlist: <strong>{{ playlist_name }}</strong></h4>
+    {% endif %}
+</div>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card bg-dark text-white border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Tu Playlist</h5>
+                    
+                    <form id="listenForm" method="POST" action="{% url 'listen_playlist' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="playlist_id" value="{{ playlist_id }}">
+                        <input type="hidden" name="perfil_id" value="{{ perfil.id }}"> <button class="btn btn-success w-100 mb-3" type="submit" id="listenButton" disabled>
+                            <i class="bi bi-play-circle-fill"></i> Escuchar Playlist
+                        </button>
+                    </form>
+                    
+                    <ul id="playlist" class="list-group list-group-flush"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card bg-dark text-white border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Recomendaciones por Artista</h5>
+                    
+                    <div class="mb-3">
+                        <select id="artistSelect" class="form-select bg-secondary text-white">
+                            <option value="" disabled selected>Selecciona un Artista</option>
+                            {% for artist in all_artists %}
+                                <option value="{{ artist.id }}">{{ artist.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <ul id="recomendaciones" class="list-group list-group-flush mt-3">
+                        <li class="list-group-item bg-dark text-white text-center">
+                            Selecciona un artista para ver sus canciones.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="fw-bold p-4 text-center">Tus Playlists Creadas</h2>
+<div class="galeria-deslizable-wrapper my-4">
+    <div class="carousel-wrapper">
+        <button type="button" class="carousel-arrow left" id="prevBtn">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <button type="button" class="carousel-arrow right" id="nextBtn">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        <div class="galeria-deslizable-wrapper-inner-cards">
+            <div class="galeria-deslizable" id="playlistCarousel">
+                {% if all_playlists %}
+                    {% for playlist in all_playlists %}
+                    <a href="?playlist_id={{ playlist.id }}" class="playlist-link">
+                        <div class="foto-item text-center p-3">
+                            <img src="{{ playlist.img_src }}" class="foto-cuadrada mb-2" alt="{{ playlist.name }}">
+                            <p class="text-white">{{ playlist.name }}</p>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="foto-item text-center p-3">
+                        <p class="text-white">No hay playlists creadas aún</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+
+<script>
+    const ACTIVE_PLAYLIST_ID = "{{ playlist_id }}";
+    const USER_PERFIL_ID = "{{ perfil.id }}";
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    const csrftoken = getCookie('csrftoken'); 
+    let total = 0; 
+
+    const playlist = document.getElementById("playlist");
+    const countEl = document.getElementById("songCount");
+    const artistSelect = document.getElementById("artistSelect");
+    const recomendacionesList = document.getElementById("recomendaciones");
+    const listenButton = document.getElementById("listenButton");
+    
+    function updateListenButton() {
+        if (listenButton && playlist) {
+            listenButton.disabled = playlist.children.length === 0;
+        }
+    }
+
+    function createSongItem(songText, imgSrc, songId) {
+        const newItem = document.createElement("li");
+        newItem.className = "list-group-item bg-dark text-white d-flex justify-content-between align-items-center";
+        newItem.dataset.songId = songId;
+        newItem.innerHTML = `
+            <div class="d-flex align-items-center gap-3">
+                <img src="${imgSrc}" class="rounded" width="48" height="48">
+                <span>${songText}</span>
+            </div>
+            <button class="btn btn-link text-white p-0 remove-btn" style="font-size: 24px; border: none; background: none;"><i class="bi bi-dash-circle"></i></button>
+        `;
+        return newItem;
+    }
+
+    function setupRemoveButton(item) {
+        const removeBtn = item.querySelector(".remove-btn");
+
+        removeBtn.addEventListener("click", () => {
+            const songId = item.dataset.songId;
+            
+            if (ACTIVE_PLAYLIST_ID === '0' || !ACTIVE_PLAYLIST_ID) {
+                alert("¡Error! No hay playlist activa para eliminar canciones.");
+                return;
+            }
+
+            fetch("{% url 'remove_song' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrftoken,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: `song_id=${songId}&playlist_id=${ACTIVE_PLAYLIST_ID}&perfil_id=${USER_PERFIL_ID}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    item.remove();
+                    total--;
+                    countEl.textContent = total;
+                    updateListenButton(); 
+                } else {
+                    alert(`Fallo al eliminar: ${data.error}`);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    }
+    
+    function setupAddButtons() {
+        const newAddButtons = recomendacionesList.querySelectorAll(".add-btn");
+        
+        newAddButtons.forEach(btn => {
+             btn.addEventListener("click", () => {
+                const songId = btn.dataset.songId;
+                
+                if ([...playlist.children].some(li => li.dataset.songId === songId)) return;
+
+                if (ACTIVE_PLAYLIST_ID === '0' || !ACTIVE_PLAYLIST_ID) {
+                    alert("¡Error! Debes crear o seleccionar una playlist activa primero.");
+                    return;
+                }
+                
+                const songText = btn.closest("li").querySelector("span").textContent;
+                const imgSrc = btn.closest("li").querySelector("img").src;
+                
+                fetch("{% url 'add_song' %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrftoken,
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+
+                    body: `song_id=${songId}&playlist_id=${ACTIVE_PLAYLIST_ID}&perfil_id=${USER_PERFIL_ID}` 
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const newItem = createSongItem(data.song_text, data.img_src, data.song_id);
+                        playlist.appendChild(newItem);
+                        setupRemoveButton(newItem); 
+                        total++;
+                        countEl.textContent = total;
+                        updateListenButton();
+                        alert(`"${data.song_text}" añadida.`);
+                    } else {
+                        alert(`Fallo al añadir: ${data.error}`);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        
+        const existingSongsJSON = '{{ songs|escapejs }}';
+        const existingSongs = existingSongsJSON ? JSON.parse(existingSongsJSON) : [];
+        
+        if (existingSongs && Array.isArray(existingSongs) && existingSongs.length > 0) {
+            existingSongs.forEach(song => {
+                const item = createSongItem(song.song_text, song.img_src, song.id);
+                playlist.appendChild(item);
+                setupRemoveButton(item);
+                total++;
+            });
+            countEl.textContent = total;
+        }
+        
+        updateListenButton(); 
+        
+        artistSelect.addEventListener("change", () => {
+            const artistId = artistSelect.value;
+
+            recomendacionesList.innerHTML = `<li class="list-group-item bg-dark text-white text-center">Cargando canciones...</li>`;
+
+            if (artistId) {
+                fetch(`/api/artist/songs/?artist_id=${artistId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        recomendacionesList.innerHTML = '';
+                        if (data.songs && data.songs.length > 0) {
+                            data.songs.forEach(song => {
+                                const item = document.createElement("li");
+                                item.className = "list-group-item bg-dark text-white d-flex justify-content-between align-items-center";
+                                item.dataset.songId = song.id; 
+                                item.dataset.songText = song.song_text; 
+                                item.dataset.imgSrc = song.img_src; 
+
+                                item.innerHTML = `
+                                    <div class="d-flex align-items-center gap-3">
+                                        <img src="${song.img_src}" class="rounded" width="48" height="48">
+                                        <span>${song.song_text}</span>
+                                    </div>
+                                    <button class="btn btn-link text-white p-0 add-btn" data-song-id="${song.id}" style="font-size: 24px; border: none; background: none;"><i class="bi bi-plus-circle"></i></button>
+                                `;
+                                recomendacionesList.appendChild(item);
+                            });
+                         
+                            setupAddButtons(); 
+                        } else {
+                            recomendacionesList.innerHTML = `<li class="list-group-item bg-dark text-white text-center">No se encontraron canciones.</li>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al cargar canciones:', error);
+                        recomendacionesList.innerHTML = `<li class="list-group-item bg-dark text-white text-center">Error al cargar datos.</li>`;
+                    });
+            }
+        });
+        
+        (function() {
+            const carousel = document.getElementById('playlistCarousel');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (carousel && prevBtn && nextBtn) {
+                const scrollAmount = 1200;
+
+                function updateButtons() {
+                    const scrollLeft = carousel.scrollLeft;
+                    const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+                    
+                    prevBtn.disabled = scrollLeft <= 1;
+                    nextBtn.disabled = scrollLeft >= maxScroll - 1;
+                }
+
+                prevBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    carousel.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                    setTimeout(updateButtons, 500);
+                });
+
+                nextBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    carousel.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                    setTimeout(updateButtons, 500);
+                });
+
+                carousel.addEventListener('scroll', updateButtons);
+                setTimeout(updateButtons, 100);
+            }
+        })();
+
+        (function() {
+            const sliders = document.querySelectorAll('.galeria-deslizable-wrapper-inner');
+            
+            sliders.forEach(slider => {
+                if (slider.id === 'playlistCarousel') return;
+
+                let isDown = false;
+                let startX;
+                let scrollLeft;
+
+                slider.addEventListener('mousedown', (e) => {
+                    isDown = true;
+                    startX = e.pageX - slider.offsetLeft;
+                    scrollLeft = slider.scrollLeft;
+                });
+
+                slider.addEventListener('mouseleave', () => { isDown = false; });
+                slider.addEventListener('mouseup', () => { isDown = false; });
+
+                slider.addEventListener('mousemove', (e) => {
+                    if (!isDown) return;
+                    e.preventDefault();
+                    const x = e.pageX - slider.offsetLeft;
+                    const walk = (x - startX) * 2;
+                    slider.scrollLeft = scrollLeft - walk;
+                });
+            });
+        })();
+    });
+</script>
+
+{% endblock %}

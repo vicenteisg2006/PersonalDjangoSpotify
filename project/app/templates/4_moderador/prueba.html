@@ -1,0 +1,54 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}Spotify{% endblock %}</title>
+
+        <!-- BootStrap -->
+        <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+        <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+        <!-- Chart.js -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <!-- amChart -->
+        <script src="https://cdn.amcharts.com/lib/5/index.js" ></script>
+        <script src="https://cdn.amcharts.com/lib/5/map.js" ></script>
+        <script src="https://cdn.amcharts.com/lib/5/geodata/worldLow.js" ></script>
+        <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js" ></script>
+
+    </head>
+
+    <body>
+
+        <div id="grafico1" style="width: 100%; height: 500px;"></div>
+
+    <script>
+    am5.ready(function() {
+        let root = am5.Root.new("grafico1");
+        root.setThemes([am5themes_Animated.new(root)]);
+
+        let chart = root.container.children.push(
+            am5map.MapChart.new(root, {
+                projection: am5map.geoOrthographic(),
+                panX: "rotateX",
+                panY: "rotateY"
+            })
+        );
+
+        chart.series.push(
+            am5map.MapPolygonSeries.new(root, {
+                geoJSON: am5geodata_worldLow,
+                fill: am5.color(0x555555),
+                stroke: am5.color(0xFFFFFF)
+            })
+        );
+    });
+    </script>
+
+    </body>
+
+</html>

@@ -1,0 +1,55 @@
+<!-- Llamada a BaseKM -->
+{% extends '4_moderador/0_baseKM.html' %}
+{% block title %} Moder page {% endblock %}
+
+<!-- Contenido especifico ALERT -->
+{% block content %}
+{% load static %}
+
+<div class="container mt-5">
+    <h2 class="display-5 mb-4 text-black">Aplicar Moderación</h2>
+
+    <div class="card p-4 bg-dark text-white border-success">
+        <h5 class="card-title text-success mb-3">Cambiar Estado de Perfil</h5>
+
+        <form method="POST" action="{% url 'update_moderation_status' moderator_perfil_id=perfil_moderador.id %}">
+            {% csrf_token %}
+
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label for="target_perfil_id" class="form-label">Perfil (Usuario/Artista)</label>
+                    <select id="target_perfil_id" name="target_perfil_id" class="form-select bg-secondary text-white" required>
+                        <option value="" selected disabled>Seleccionar Perfil</option>
+                        {% for p in target_profiles %}
+                            <option value="{{ p.id }}">{{ p.username }} ({{ p.rol|capfirst }}) - Estado actual: {{ p.estado_moderacion }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-5">
+                    <label for="new_status" class="form-label">Nuevo Estado</label>
+                    
+                    <select id="new_status" name="new_status" class="form-select bg-secondary text-white" required>
+                        <option value="" selected disabled>Seleccionar Nuevo Estado</option>
+                        <option value="ok">OK (Desbanear/Normalizar)</option>
+                        <option value="alert">ALERT</option>
+                        <option value="ban" class="text-danger">BAN</option>
+                        <option value="en_espera">En Espera</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-warning w-100">Aplicar</button>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <label for="reason" class="form-label">Razón del Cambio (Para el registro)</label>
+                {{ form.reason }}
+                {% if form.reason.errors %}<div class="text-danger small">{{ form.reason.errors }}</div>{% endif %}
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,394 @@
+{% extends '2_artista/0_baseKA.html' %}
+{% block title %} Mis Canciones - {{artist_name}} {% endblock %}
+
+{% block content %}
+{% load static %}
+{% load humanize %}
+
+<style>
+    #songsTable {
+        background-color: #1a1a1a !important;
+    }
+    .table thead th {
+        border-bottom: 2px solid #1db954;
+        color: #1db954 !important;
+        font-weight: 600;
+        background-color: #1a1a1a !important;
+    }
+    .table tbody tr {
+        border-bottom: 1px solid #333;
+        transition: background-color 0.2s;
+        background-color: #1a1a1a !important;
+    }
+    .table tbody tr:hover {
+        background-color: #1a1a1a !important;
+    }
+    .table tbody tr td,
+    .table tbody tr th {
+        color: #ffffff !important;
+        background-color: transparent !important;
+    }
+    .form-control, .form-select {
+        background-color: #2a2a2a;
+        border: 1px solid #444;
+        color: #fff;
+    }
+    .form-control:focus, .form-select:focus {
+        background-color: #2a2a2a;
+        border-color: #1db954;
+        color: #fff;
+        box-shadow: 0 0 0 0.2rem rgba(29, 185, 84, 0.25);
+    }
+    .form-control::placeholder {
+        color: #888;
+    }
+</style>
+
+    <!-- Header -->
+    <div class="container mt-5">
+        <h2 class="display-2 mb-3">Mis <span style="color:#1db954;">Canciones</span></h2>
+        <p class="lead text-secondary">Todas las canciones de {{artist_name}}</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="container mt-4">
+        <div class="row text-center">
+            <div class="col-md-6">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Total de Canciones</h5>
+                    <p class="display-5">{{ total_songs|intcomma }}</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title">Total de Streams</h5>
+                    <p class="display-5">{{ total_streams|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Canciones -->
+    <div class="container mt-4 ">
+        <div class="card p-4 mb-4">
+            <h5 class="card-title mb-4">Lista Completa de Canciones</h5>
+            
+            <!-- Filtros y búsqueda -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Buscar canción...">
+                </div>
+                <div class="col-md-2">
+                    <select id="sortSelect" class="form-select">
+                        <option value="name">Ordenar por Nombre</option>
+                        <option value="streams" selected>Ordenar por Streams</option>
+                        <option value="date">Ordenar por Fecha</option>
+                        <option value="album">Ordenar por Álbum</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select id="orderSelect" class="form-select">
+                        <option value="desc">Descendente</option>
+                        <option value="asc">Ascendente</option>
+                    </select>
+                </div>
+
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-success w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#createAlbumModal">
+                        <i class="fas fa-plus-circle"></i>Album
+                    </button>
+                </div>
+
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-success w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#uploadSongModal">
+                        <i class="fas fa-upload"></i> Song
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Tabla -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="songsTable">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Canción</th>
+                            <th scope="col">Álbum</th>
+                            <th scope="col">Duración</th>
+                            <th scope="col">Streams</th>
+                            <th scope="col">Fecha de Lanzamiento</th>
+                        </tr>
+                    </thead>
+                    <tbody id="songsTableBody">
+                        {% for song in songs %}
+                        <tr data-name="{{ song.song_text }}" data-album="{{ song.album }}" data-streams="{{ song.streams }}" data-date="{{ song.created_at|date:'Y-m-d' }}">
+                            <th scope="row">{{ forloop.counter }}</th>
+                            <td>{{ song.song_text }}</td>
+                            <td>{{ song.album }}</td>
+                            <td>{{ song.duration|default:"0:00" }}</td>
+                            <td>{{ song.streams|intcomma }}</td>
+                            <td>{{ song.created_at|date:'Y-m-d' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Contador de resultados -->
+            <div class="mt-3">
+                <p class="text-light">
+                    Mostrando <span id="resultsCount">{{ songs|length }}</span> de {{ songs|length }} canciones
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de distribución de streams -->
+    <div class="container mt-4 mb-5">
+        <div class="card p-4">
+            <h5 class="card-title mb-4">Distribución de Streams por Canción</h5>
+            <canvas id="streamsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Datos JSON para JavaScript -->
+    <script type="application/json" id="songsDataJson">
+        [
+            {% for song in songs %}{
+                "name": "{{ song.name|escapejs }}",
+                "album": "{{ song.album|escapejs }}",
+                "duration": "{{ song.duration }}",
+                "streams": {{ song.streams }},
+                "release_date": "{{ song.release_date }}"
+            }{% if not forloop.last %},{% endif %}{% endfor %}
+        ]
+    </script>
+
+
+
+    <script>
+        // Cargar datos de canciones desde el elemento JSON
+        const songsData = JSON.parse(document.getElementById('songsDataJson').textContent);
+
+        // Gráfico de streams
+        const ctx = document.getElementById('streamsChart');
+        const streamsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: songsData.map(s => s.name),
+                datasets: [{
+                    label: 'Streams',
+                    data: songsData.map(s => s.streams),
+                    backgroundColor: '#1db954',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: { color: 'white' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.parsed.y.toLocaleString()} streams`
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        ticks: { 
+                            color: '#ccc',
+                            maxRotation: 45,
+                            minRotation: 45
+                        } 
+                    },
+                    y: { 
+                        ticks: { 
+                            color: '#ccc',
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        } 
+                    }
+                }
+            }
+        });
+
+        // Búsqueda en tiempo real
+        const searchInput = document.getElementById('searchInput');
+        const sortSelect = document.getElementById('sortSelect');
+        const orderSelect = document.getElementById('orderSelect');
+        const tableBody = document.getElementById('songsTableBody');
+        const resultsCount = document.getElementById('resultsCount');
+
+        function filterAndSortTable() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const sortBy = sortSelect.value;
+            const order = orderSelect.value;
+            
+            let rows = Array.from(tableBody.querySelectorAll('tr'));
+            let visibleCount = 0;
+
+            // Filtrar
+            rows.forEach(row => {
+                const name = row.dataset.name.toLowerCase();
+                const album = row.dataset.album.toLowerCase();
+                
+                if (name.includes(searchTerm) || album.includes(searchTerm)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Ordenar solo las filas visibles
+            let visibleRows = rows.filter(row => row.style.display !== 'none');
+            
+            visibleRows.sort((a, b) => {
+                let aVal, bVal;
+                
+                switch(sortBy) {
+                    case 'name':
+                        aVal = a.dataset.name.toLowerCase();
+                        bVal = b.dataset.name.toLowerCase();
+                        break;
+                    case 'streams':
+                        aVal = parseInt(a.dataset.streams);
+                        bVal = parseInt(b.dataset.streams);
+                        break;
+                    case 'date':
+                        aVal = a.dataset.date;
+                        bVal = b.dataset.date;
+                        break;
+                    case 'album':
+                        aVal = a.dataset.album.toLowerCase();
+                        bVal = b.dataset.album.toLowerCase();
+                        break;
+                }
+
+                if (order === 'asc') {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+
+            // Reordenar filas visibles
+            visibleRows.forEach(row => tableBody.appendChild(row));
+            
+            // Actualizar números
+            let counter = 1;
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    row.querySelector('th').textContent = counter++;
+                }
+            });
+
+            // Actualizar contador
+            resultsCount.textContent = visibleCount;
+        }
+
+        searchInput.addEventListener('input', filterAndSortTable);
+        sortSelect.addEventListener('change', filterAndSortTable);
+        orderSelect.addEventListener('change', filterAndSortTable);
+
+        // Ordenar por streams al cargar (por defecto)
+        filterAndSortTable();
+    </script>
+
+
+
+
+
+<div class="modal fade" id="uploadSongModal" tabindex="-1" aria-labelledby="uploadSongModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background-color: #1a1a1a;">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="uploadSongModalLabel" style="color: #1db954;">Subir Nueva Canción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'upload_song' perfil_id=perfil_id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% if form.errors %}
+                        {% endif %}
+
+                    <div class="mb-3">
+                        <label for="song_text" class="form-label text-white">Nombre de la Canción</label>
+                        <input type="text" class="form-control" id="song_text" name="song_text" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="img_src" class="form-label text-white">URL de la Portada (img_src)</label>
+                        <input type="url" class="form-control" id="img_src" name="img_src">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="album_id" class="form-label text-white">Álbum</label>
+                        <select class="form-select" id="album_id" name="album_id" required>
+                            <option value="">Selecciona un Álbum</option>
+                            {% for album in albums %}
+                                <option value="{{ album.id }}">{{ album.title }}</option>
+                            {% empty %}
+                                <option value="" disabled>No tienes álbumes. Crea uno primero.</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="duration" class="form-label text-white">Duración (MM:SS)</label>
+                        <input type="text" class="form-control" id="duration" name="duration" placeholder="Ej: 3:45" required>
+                    </div>
+
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-success">Guardar Canción</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createAlbumModal" tabindex="-1" aria-labelledby="createAlbumModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background-color: #1a1a1a;">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="createAlbumModalLabel" style="color: #1db954;">Crear Nuevo Álbum</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'create_album' perfil_id=perfil_id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="perfil_id" value="{{ perfil.id }}">
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label text-white">Título del Álbum</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="release_date" class="form-label text-white">Fecha de Lanzamiento</label>
+                        <input type="date" class="form-control" id="release_date" name="release_date">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cover_art_url" class="form-label text-white">URL de la Portada</label>
+                        <input type="url" class="form-control" id="cover_art_url" name="cover_art_url">
+                    </div>
+
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Crear Álbum</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+

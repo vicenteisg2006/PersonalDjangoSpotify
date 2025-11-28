@@ -1,0 +1,277 @@
+<!-- LLamada a baseKM -->
+{% extends '4_moderador/0_baseKM.html' %}
+{% block title %} Spotify Moderator {% endblock %}
+
+<!-- block extrahead style -->
+ {% block extra_head %}
+    <style>
+        .card-clickeable {cursor: pointer;}
+        .card-clickeable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(190, 87, 87, 0.5);
+        }
+        .card {
+            background-color: #5C6ACB;
+            color: rgb(0, 0, 0); 
+}
+
+    </style> 
+ 
+ {% endblock %}
+
+<!-- Contenido especifico MODERATOR -->
+{% block content %}
+{% load static %}
+
+    <!-- header -->
+    <div class="container mt-5">
+        <h2 class="display-2 mb-3" style="font-weight: 700;">Bienvenido, <span style="color:#5C6ACB;">{{perfil.nombre}}</span></h2>
+    </div>
+
+    <!-- Dashboard inicial -->
+    <div class="container ">
+
+        <!-- fila 1 -->
+        <div class="row mb-4 mt-4 align-items-stretch">
+
+            <!-- columa 1 (1/6): tarjetas -->
+            <div class="col-md-2 ">
+                <div class="d-flex flex-column justify-content-between h-100">
+
+                    <div class="card p-4 card-clickeable" data-chart-id="graph-card-1">
+                        <p class="card-title">N° Alertas</p>
+                        <h2 class="display-6">{{ n_alertas }}</h2>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- columa 2 (1/6): tarjetas -->
+            <div class="col-md-2 ">
+                <div class="d-flex flex-column justify-content-between h-100">
+
+                    <div class="card p-4 card-clickeable" data-chart-id="graph-card-2">
+                        <p class="card-title">N° Baneos</p>
+                        <h2 class="display-6">{{ n_baneos }}</h2>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- columa 3 (1/6): tarjetas -->
+            <div class="col-md-2 ">
+                <div class="d-flex flex-column justify-content-between h-100">
+
+                    <div class="card p-4 card-clickeable" data-chart-id="graph-card-3">
+                        <p class="card-title">U. Moderados</p>
+                        <h2 class="display-6">{{ u_moderados }}</h2>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- columa 4 (1/6): tarjetas -->
+            <div class="col-md-2 ">
+                <div class="d-flex flex-column justify-content-between h-100">
+
+                    <div class="card p-4 card-clickeable" data-chart-id="graph-card-4">
+                        <p class="card-title">A. Moderados</p>
+                        <h2 class="display-6">{{ a_moderados }}</h2>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- columa 5 (1/6): tarjetas -->
+            <div class="col-md-2 ">
+                <div class="d-flex flex-column justify-content-between h-100">
+
+                    <div class="card p-4 card-clickeable" data-chart-id="graph-card-5">
+                        <p class="card-title">Pendientes</p>
+                        <h2 class="display-6">{{ n_pendientes }}</h2>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- columa 6 (1/6): tarjetas -->
+            <div class="col-md-2 ">
+                <div class="d-flex flex-column justify-content-between h-100">
+
+                    <div class="card p-4 card-clickeable" data-chart-id="graph-card-6">
+                        <p class="card-title">Finalizados</p>
+                        <h2 class="display-6">{{ n_finalizados }}</h2>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+  
+
+        <!-- fila 2 -->
+        <div class="row mb-4 mt-4 align-items-stretch">
+
+            <!-- columa 1 (1/1): grafico -->
+            <div class="col-md-5">
+                <div class="card p-3 mb-4" style="min-width: 100%;">
+                    <h5 class="card-title" id="grafico_1">Data Global</h5>
+                    <div id="grafico1" style="width: 100%; min-width: 400px; height: 300px;"></div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="card p-3 mb-4">
+                    <h5 class="card-title" id="grafico_2">Detalle data</h5>
+                    <canvas id="grafico2" style="height: 300px;"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+    let amRoot;
+    let amBubbleSeries;
+    let chartJsGrafico;
+
+    const defaultChartJsOptions = {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {color: '#ddd'},
+                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+            },
+            x: {
+                ticks: {color: '#ddd'},
+                grid: { color: 'rgba(255, 255, 255, 0.1)'}
+            }
+        },
+        plugins: {
+            legend: {
+                labels: { color: '#eee' }
+            }
+        }
+    };
+
+    am5.ready(function() {
+
+        amRoot = am5.Root.new("grafico1"); 
+        amRoot.setThemes([am5themes_Animated.new(amRoot)]);
+
+        let amChart = amRoot.container.children.push(
+            am5map.MapChart.new(amRoot, {
+                projection: am5map.geoOrthographic(),
+                panX: "rotateX",
+                panY: "rotateY",
+            })
+        );
+
+        amChart.series.push(
+            am5map.MapPolygonSeries.new(amRoot, {           
+                geoJSON: am5geodata_worldLow,
+                fill: am5.color(0x222222),
+                stroke : am5.color(0xFFFFFF), 
+                strokeOpacity: 0.1
+            })
+        );
+
+        amBubbleSeries = amChart.series.push(
+            am5map.MapPointSeries.new(amRoot, {
+                latitudeField: "lat",
+                longitudeField: "lon",
+            })
+        );
+
+        amBubbleSeries.bullets.push(function() {
+            return am5.Bullet.new(amRoot, {
+                sprite: am5.Circle.new(amRoot, {
+                    radius: 5,
+                    fill: am5.color(0x8EFAB4),
+                    stroke: am5.color(0xFFFFFF),
+                    strokeWidth: 1,
+                    tooltipText: "{title}: {value}"
+                })
+            });
+        });
+
+        setTimeout(() => {
+            amRoot.resize();
+        }, 100);
+
+        const observer = new ResizeObserver(() => {
+            amRoot.resize();
+        });
+        observer.observe(document.getElementById("grafico1"));
+
+    }); 
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx2 = document.getElementById('grafico2').getContext('2d');
+        chartJsGrafico = new Chart(ctx2, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: defaultChartJsOptions
+        });
+    }); 
+
+    document.querySelectorAll('.card-clickeable').forEach(card => {
+        card.addEventListener('click', () => {
+            const chartId = card.dataset.chartId;
+            actualizarGrafico(chartId);
+        })
+    })
+
+    async function actualizarGrafico(chartId) {
+
+        try {
+            const response = await fetch(`/moderador/data/${chartId}/`);
+            if (!response.ok) {
+                throw new Error('Error en la carga de datos');
+            }
+            const data = await response.json();
+
+            const g1Data = data.grafico_1_data;
+            document.getElementById('grafico_1').innerText = g1Data.title; 
+            
+            if (amBubbleSeries) {
+                amBubbleSeries.data.setAll(g1Data.data); 
+            }
+
+            const g2Data = data.grafico_2_data;
+            document.getElementById('grafico_2').innerText = g2Data.title;
+            
+            if (chartJsGrafico) {
+                chartJsGrafico.config.type = g2Data.type || 'bar';
+                chartJsGrafico.data.labels = g2Data.labels;
+                chartJsGrafico.data.datasets = g2Data.datasets;
+
+                if (g2Data.options) {
+                    Object.assign(chartJsGrafico.options.scales, g2Data.options.scales);
+                } else {
+                    chartJsGrafico.options.scales = defaultChartJsOptions.scales;
+                }
+                chartJsGrafico.update();
+            }
+
+        } catch (error) {
+            console.error('Error al actualizar los gráficos:', error);
+        }
+    }
+</script>
+
+<script>
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+
+{% endblock %}
